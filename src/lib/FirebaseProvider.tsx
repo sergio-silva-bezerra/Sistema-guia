@@ -182,7 +182,7 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
       });
       if (error) throw error;
     } else {
-      throw new Error('Supabase não configurado');
+      throw new Error('Supabase não configurado. Clique no botão "Configurar Supabase" abaixo para inserir sua URL e Anon Key.');
     }
   };
 
@@ -199,7 +199,7 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
         await syncUserProfile(data.user);
       }
     } else {
-      // Fallback local login for dev/offline
+      // Fallback local login for dev/offline mode
       const fakeUser = {
         id: `usr_${Date.now()}`,
         uid: `usr_${Date.now()}`,

@@ -1,8 +1,10 @@
 import React, { useState, useEffect, Suspense, lazy } from 'react';
-import { ShieldCheck, Lock, FileText } from 'lucide-react';
+import { ShieldCheck, Lock, FileText, Database } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useAuth, UserRole } from './lib/FirebaseProvider';
 import { firestoreService } from './lib/firestoreService';
+import { isSupabaseConfigured } from './lib/supabase';
+import { SupabaseConfigModal } from './components/SupabaseConfigModal';
 import { DemoHeaderBanner } from './components/DemoHeaderBanner';
 import { DemoBlockModal } from './components/DemoBlockModal';
 import { DocDownloadModal } from './components/DocDownloadModal';
@@ -69,6 +71,7 @@ export default function App() {
   });
   const [showDemoBlockModal, setShowDemoBlockModal] = useState(false);
   const [showDocModal, setShowDocModal] = useState(false);
+  const [showSupabaseConfig, setShowSupabaseConfig] = useState(false);
 
   // Sync demoRole when demo mode starts
   useEffect(() => {
@@ -403,7 +406,7 @@ export default function App() {
           animate={{ opacity: 1, scale: 1 }}
           className="max-w-md w-full bg-[var(--bg-secondary)] p-10 md:p-14 rounded-sm shadow-2xl border border-[var(--border-color)] relative z-20 backdrop-blur-sm"
         >
-          <div className="flex justify-center mb-6 text-[var(--text-primary)]">
+          <div className="flex flex-col items-center mb-6 text-[var(--text-primary)]">
             <div className="flex items-center justify-center bg-transparent w-full">
               <img 
                 src={logoImg} 
@@ -412,6 +415,19 @@ export default function App() {
                 className="max-h-56 md:max-h-72 w-full max-w-[300px] md:max-w-[360px] object-contain transition-all" 
               />
             </div>
+            
+            <button
+              type="button"
+              onClick={() => setShowSupabaseConfig(true)}
+              className={`mt-4 text-[9px] font-black uppercase tracking-wider px-3 py-1.5 rounded-full border transition-all flex items-center gap-1.5 active:scale-95 ${
+                isSupabaseConfigured()
+                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20'
+                  : 'bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20'
+              }`}
+            >
+              <Database className="w-3 h-3" />
+              {isSupabaseConfigured() ? 'Supabase Conectado • Configurar' : '⚙️ Configurar Banco Supabase'}
+            </button>
           </div>
           
           <form onSubmit={handleEmailAuth} className="space-y-6 text-left relative z-10">
@@ -471,9 +487,20 @@ export default function App() {
 
             {authError && (
               <div className="space-y-3">
-                <p className="text-red-500 text-[10px] font-black uppercase text-center bg-red-500/10 py-3 rounded-sm border border-red-500/20 tracking-wider">
+                <p className="text-red-500 text-[10px] font-black uppercase text-center bg-red-500/10 py-3 rounded-sm border border-red-500/20 tracking-wider leading-relaxed">
                   {authError}
                 </p>
+                
+                {(authError.toLowerCase().includes('supabase') || authError.toLowerCase().includes('configurad')) && (
+                  <button
+                    type="button"
+                    onClick={() => setShowSupabaseConfig(true)}
+                    className="w-full bg-blue-600 text-white font-black text-[10px] uppercase tracking-widest py-3 px-4 rounded-sm hover:bg-blue-500 active:scale-95 transition-all flex items-center justify-center gap-2 shadow-md"
+                  >
+                    <Database className="w-3.5 h-3.5" />
+                    Configurar Banco Supabase Agora
+                  </button>
+                )}
                 
                 {showDomainGuide && (
                   <div className="bg-blue-600/5 border border-blue-600/20 rounded-sm p-4 text-left space-y-3 animate-fadeIn">
@@ -569,6 +596,15 @@ export default function App() {
               Página de Vendas &rarr;
             </button>
           </div>
+
+          <SupabaseConfigModal
+            isOpen={showSupabaseConfig}
+            onClose={() => setShowSupabaseConfig(false)}
+            onConnected={() => {
+              setAuthError('');
+              setShowSupabaseConfig(false);
+            }}
+          />
         </motion.div>
         
         <p className="mt-12 text-[10px] font-black text-[var(--text-secondary)] opacity-20 uppercase tracking-[0.5em] relative z-20">Eagle Intelligence Systems • 2026</p>
@@ -600,6 +636,15 @@ export default function App() {
       <DocDownloadModal
         isOpen={showDocModal}
         onClose={() => setShowDocModal(false)}
+      />
+
+      <SupabaseConfigModal
+        isOpen={showSupabaseConfig}
+        onClose={() => setShowSupabaseConfig(false)}
+        onConnected={() => {
+          setAuthError('');
+          setShowSupabaseConfig(false);
+        }}
       />
 
       {/* Floating Quick Download Trigger */}
