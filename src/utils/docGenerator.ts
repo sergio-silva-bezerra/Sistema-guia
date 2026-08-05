@@ -317,3 +317,220 @@ export function downloadRequirementsDoc() {
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
 }
+
+export function downloadStrategicPlanDoc() {
+  const documentContent = `
+<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+<head>
+  <meta charset="utf-8">
+  <title>Plano Estratégico de Negócio - Nexus Política & Eagle Intelligence 2026</title>
+  <!--[if gte mso 9]>
+  <xml>
+    <w:WordDocument>
+      <w:View>Print</w:View>
+      <w:Zoom>100</w:Zoom>
+      <w:DoNotOptimizeForBrowser/>
+    </w:WordDocument>
+  </xml>
+  <![endif]-->
+  <style>
+    body {
+      font-family: 'Calibri', 'Segoe UI', Arial, sans-serif;
+      font-size: 11pt;
+      line-height: 1.5;
+      color: #1a1a1a;
+      margin: 40pt;
+    }
+    h1 {
+      font-size: 20pt;
+      color: #1e3a8a;
+      border-bottom: 2px solid #1e3a8a;
+      padding-bottom: 6px;
+      margin-top: 24pt;
+      margin-bottom: 12pt;
+      text-transform: uppercase;
+    }
+    h2 {
+      font-size: 14pt;
+      color: #2563eb;
+      margin-top: 18pt;
+      margin-bottom: 8pt;
+      border-bottom: 1px solid #e5e7eb;
+      padding-bottom: 4px;
+    }
+    h3 {
+      font-size: 12pt;
+      color: #1f2937;
+      margin-top: 12pt;
+      margin-bottom: 6pt;
+    }
+    p, li {
+      font-size: 11pt;
+      text-align: justify;
+    }
+    ul, ol {
+      margin-top: 4pt;
+      margin-bottom: 8pt;
+      padding-left: 20pt;
+    }
+    li {
+      margin-bottom: 4pt;
+    }
+    .header-box {
+      background-color: #f8fafc;
+      border: 1px solid #cbd5e1;
+      padding: 16pt;
+      border-radius: 4px;
+      margin-bottom: 20pt;
+    }
+    .header-box h1 {
+      margin-top: 0;
+      color: #0f172a;
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10pt;
+      margin-bottom: 15pt;
+    }
+    th, td {
+      border: 1px solid #cbd5e1;
+      padding: 8pt 10pt;
+      text-align: left;
+      font-size: 10pt;
+    }
+    th {
+      background-color: #f1f5f9;
+      color: #0f172a;
+      font-weight: bold;
+    }
+    tr:nth-child(even) {
+      background-color: #f8fafc;
+    }
+    .highlight-box {
+      background-color: #eff6ff;
+      border-left: 4px solid #2563eb;
+      padding: 10pt 12pt;
+      margin-top: 10pt;
+      margin-bottom: 10pt;
+    }
+    .badge {
+      background-color: #dbeafe;
+      color: #1e40af;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-weight: bold;
+      font-size: 9pt;
+    }
+    .footer-text {
+      margin-top: 30pt;
+      font-size: 9pt;
+      color: #64748b;
+      border-top: 1px solid #e2e8f0;
+      padding-top: 8pt;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header-box">
+    <h1>PLANO ESTRATÉGICO DE NEGÓCIO</h1>
+    <p><strong>Plataforma:</strong> Nexus Política 2026 (Eagle Intelligence Systems)</p>
+    <p><strong>Mercado Alvo:</strong> Campanhas Eleitorais Municipais, Estaduais e Federais no Brasil</p>
+    <p><strong>Versão:</strong> 1.0 (Visão 2026-2028)</p>
+    <p><strong>Status:</strong> Documento de Diretrizes Estratégicas e Expansão Comercial</p>
+  </div>
+
+  <h2>1. RESUMO EXECUTIVO E VISÃO DE MERCADO</h2>
+  <p>
+    O <strong>Nexus Política 2026</strong> é uma plataforma GovTech / PoliticalTech desenvolvida para transformar a gestão tática de campanhas eleitorais no Brasil. O sistema substitui planilhas descentralizadas e comunicação informal por uma infraestrutura centralizada de inteligência eleitoral, conectando em tempo real candidatos, coordenadores gerais, coordenadores municipais e cabos eleitorais (militância de campo).
+  </p>
+
+  <h2>2. ANÁLISE DO PROBLEMA &amp; OPORTUNIDADE</h2>
+  <ul>
+    <li><strong>Desorganização de Base:</strong> Perda de votos por falta de acompanhamento direto dos eleitores mapeados pelos cabos eleitorais.</li>
+    <li><strong>Desperdício de Recursos:</strong> Distribuição ineficiente de materiais e vouchers de combustível sem comprovação geográfica (comprovação georreferenciada).</li>
+    <li><strong>Opacidade Tática:</strong> Falta de visibilidade da liderança sobre a densidade de votos por zona eleitoral (TRE/TSE).</li>
+    <li><strong>Oportunidade Comercial:</strong> Mais de 5.500 municípios e milhares de candidaturas estaduais e federais com orçamento concentrado no ciclo eleitoral de 2026.</li>
+  </ul>
+
+  <h2>3. MODELO DE NEGÓCIO E PRECIFICAÇÃO (REVENUE MODEL)</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Plano / Modalidade</th>
+        <th>Público-Alvo</th>
+        <th>Precificação Média</th>
+        <th>Recursos Incluídos</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Plano Municipal (Vereador/Prefeito)</strong></td>
+        <td>Candidatos locais</td>
+        <td>R$ 3.500,00 – R$ 8.000,00 / campanha</td>
+        <td>Até 50 cabos eleitorais, mapa de calor, controle de vales e aplicativo PWA offline.</td>
+      </tr>
+      <tr>
+        <td><strong>Plano Estadual (Dep. Estadual/Federal)</strong></td>
+        <td>Candidatos de médio porte</td>
+        <td>R$ 15.000,00 – R$ 35.000,00 / campanha</td>
+        <td>Cabos ilimitados, geolocalização TRE, múltiplos coordenadores, relatórios em PDF/DOC.</td>
+      </tr>
+      <tr>
+        <td><strong>Plano Majoritário (Senado/Governador)</strong></td>
+        <td>Grandes coligações</td>
+        <td>R$ 50.000,00 – R$ 120.000,00 / campanha</td>
+        <td>Infraestrutura isolada, suporte dedicado, WhatsApp automatizado e inteligência eleitoral.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>4. ESTRATÉGIA DE GO-TO-MARKET (GTM) E VENDAS</h2>
+  <ol>
+    <li><strong>Prospecção Direta (Outbound B2G/B2Pol):</strong> Abordagem direta a partidos políticos, diretórios regionais e consultores de marketing político.</li>
+    <li><strong>Demonstração Interativa (Demo Mode):</strong> Uso do módulo "Demo" integrado na própria plataforma, permitindo ao coordenador experimentar os papéis antes de fechar contrato.</li>
+    <li><strong>Parcerias Estratégicas:</strong> Conexão com agências de comunicação política e escritórios de advocacia eleitoral.</li>
+  </ol>
+
+  <h2>5. PLANO DE AÇÃO E MARCOS TEMPORAIS (ROADMAP 2026)</h2>
+  <ul>
+    <li><strong>Fase 1 (Pré-Campanha):</strong> Lançamento do MVP, captação das primeiras 20 campanhas piloto e validação das integrações de dados TRE.</li>
+    <li><strong>Fase 2 (Convenções Partidárias):</strong> Expansão comercial e onboarding massivo das equipes de campo (cabos eleitorais).</li>
+    <li><strong>Fase 3 (Período Eleitoral Ativo):</strong> Monitoramento intensivo de disparos, gestão de vales de combustível e relatórios diários de meta.</li>
+    <li><strong>Fase 4 (Pós-Eleição):</strong> Transição dos dados para mandato legislativo/pós-venda para retenção do candidato.</li>
+  </ul>
+
+  <h2>6. ANÁLISE DE RISCOS E CONFORMIDADE (LGPD ELEITORAL)</h2>
+  <div class="highlight-box">
+    <p><strong>Garantias de Privacidade e Segurança:</strong></p>
+    <p>• Dados armazenados com encriptação e isolamento por candidato.</p>
+    <p>• Consentimento explícito dos eleitores cadastrados conforme a LGPD.</p>
+    <p>• Logs auditáveis de ações de cabos eleitorais e coordenadores.</p>
+  </div>
+
+  <div class="footer-text">
+    <p>Nexus Política 2026 &copy; Eagle Intelligence Systems. Documento Confidencial de Planejamento Estratégico.</p>
+  </div>
+
+</body>
+</html>
+  `.trim();
+
+  const blob = new Blob(['\ufeff' + documentContent], {
+    type: 'application/msword;charset=utf-8'
+  });
+
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'Plano_Estrategico_Nexus_Politica_2026.doc';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
