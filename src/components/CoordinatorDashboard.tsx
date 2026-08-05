@@ -72,6 +72,7 @@ import { reportService } from '../services/reportService';
 import { useAuth } from '../lib/FirebaseProvider';
 import { firestoreService } from '../lib/firestoreService';
 import { candidateService, CandidateInfo, DEFAULT_CANDIDATE_INFO } from '../lib/candidateService';
+import { ensureSeedCampaignData } from '../lib/campaignSeedService';
 import { getSubscriptionInfo, saveSubscriptionPlan, PlanType, PLAN_CONFIGS, validateLeaderRegistration, validateRegionalRegistration, triggerUpgradeRedirect } from '../lib/planService';
 import NoteCard from './NoteCard';
 import RoraimaMapComponent from './RoraimaMapComponent';
@@ -627,6 +628,8 @@ export default function CoordinatorDashboard({
   // Subscrições para Coordenadores Regionais e Metas com Auto-Healing e Sincronização Unificada
   useEffect(() => {
     if (!coordinatorId) return;
+
+    ensureSeedCampaignData().catch(() => {});
 
     const syncRegionalCoordinators = async () => {
       try {
@@ -1948,20 +1951,23 @@ export default function CoordinatorDashboard({
         const uRegion = (userRegion || profileData?.region || '').toUpperCase().trim();
 
         displayVoters = uniqueVoters.filter((v: any) => {
-          if (uId && v.regionalCoordId && v.regionalCoordId === uId) return true;
+          if (uId && v.regionalCoordId && String(v.regionalCoordId) === String(uId)) return true;
           if (uEmail && v.regionalCoordEmail && v.regionalCoordEmail.toLowerCase().trim() === uEmail) return true;
+
+          const voterRegion = (v.region || '').toUpperCase().trim();
+          if (uRegion && voterRegion && (voterRegion === uRegion || voterRegion.includes(uRegion) || uRegion.includes(voterRegion))) return true;
 
           if (teams && teams.length > 0) {
             const matchedTeam = teams.find(t => isVoterInTeam(v, t));
             if (matchedTeam) {
               const teamIsMyRegional = 
-                (uId && matchedTeam.regionalCoordId === uId) ||
+                (uId && String(matchedTeam.regionalCoordId) === String(uId)) ||
                 (uEmail && matchedTeam.regionalCoordEmail && matchedTeam.regionalCoordEmail.toLowerCase().trim() === uEmail) ||
                 (uRegion && matchedTeam.region && matchedTeam.region.toUpperCase().trim() === uRegion);
               if (teamIsMyRegional) return true;
             }
           }
-          if (v.coordinatorId === coordinatorId || v.coordinatorId === user?.uid || v.coordinatorId === 'geral') return true;
+          if (!v.regionalCoordId && !v.teamId && (v.coordinatorId === uId || v.createdBy === uId)) return true;
           return false;
         });
       }
