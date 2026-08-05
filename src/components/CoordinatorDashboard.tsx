@@ -608,10 +608,132 @@ export default function CoordinatorDashboard({
   const [voterFilterReferredBy, setVoterFilterReferredBy] = useState('');
   const [articulatorFilter, setArticulatorFilter] = useState('');
 
-  // Subscrições para Coordenadores Regionais e Metas
+  // Subscrições para Coordenadores Regionais e Metas com Auto-Healing e Sincronização Unificada
   useEffect(() => {
     if (!coordinatorId) return;
-    const unsubRegs = firestoreService.subscribeToCollectionFiltered<any>('regional_coordinators', coordinatorId, (data) => setRegionalCoordinators(data));
+
+    const syncRegionalCoordinators = async () => {
+      try {
+        const [rawRegs, rawPreRegs, rawUsers, rawTeams] = await Promise.all([
+          firestoreService.getCollectionFiltered<any>('regional_coordinators', coordinatorId),
+          firestoreService.getCollection<any>('pre_registrations'),
+          firestoreService.getCollection<any>('users'),
+          firestoreService.getCollection<any>('teams')
+        ]);
+
+        const map = new Map<string, any>();
+
+        // 1. Existing regional_coordinators docs
+        (rawRegs || []).forEach(r => {
+          if (!r) return;
+          const key = (r.email || r.id || '').toLowerCase().trim();
+          if (key) map.set(key, r);
+        });
+
+        // 2. Pre-registrations with role 'coordenador_regional'
+        (rawPreRegs || []).forEach(p => {
+          if (!p) return;
+          if (p.role === 'coordenador_regional') {
+            const key = (p.email || p.id || '').toLowerCase().trim();
+            if (key) {
+              const existing = map.get(key) || {};
+              const merged = {
+                id: existing.id || `reg_${key.replace(/[^a-zA-Z0-9]/g, '_')}`,
+                name: p.name || existing.name || 'Coordenador Regional',
+                email: p.email || existing.email || key,
+                phone: p.phone || existing.phone || '',
+                region: p.region || existing.region || 'Região Não Definida',
+                subLocations: p.subLocations || existing.subLocations || '',
+                targetVoters: p.targetVoters || existing.targetVoters || 500,
+                role: 'coordenador_regional',
+                tempPassword: p.tempPassword || existing.tempPassword || '123456',
+                coordinatorId: p.coordinatorId || existing.coordinatorId || coordinatorId || 'geral',
+                createdAt: p.createdAt || existing.createdAt || Date.now()
+              };
+              map.set(key, merged);
+
+              // Auto-persist to regional_coordinators if missing
+              if (!existing.id) {
+                firestoreService.setDocument('regional_coordinators', merged.id, merged);
+              }
+            }
+          }
+        });
+
+        // 3. Users with role 'coordenador_regional'
+        (rawUsers || []).forEach(u => {
+          if (!u) return;
+          if (u.role === 'coordenador_regional') {
+            const key = (u.email || u.id || '').toLowerCase().trim();
+            if (key) {
+              const existing = map.get(key) || {};
+              const merged = {
+                id: existing.id || `reg_${key.replace(/[^a-zA-Z0-9]/g, '_')}`,
+                name: u.name || existing.name || 'Coordenador Regional',
+                email: u.email || existing.email || key,
+                phone: u.phone || existing.phone || '',
+                region: u.region || existing.region || 'Região Não Definida',
+                subLocations: u.subLocations || existing.subLocations || '',
+                targetVoters: u.targetVoters || existing.targetVoters || 500,
+                role: 'coordenador_regional',
+                tempPassword: u.tempPassword || existing.tempPassword || '123456',
+                coordinatorId: u.coordinatorId || existing.coordinatorId || coordinatorId || 'geral',
+                createdAt: u.createdAt || existing.createdAt || Date.now()
+              };
+              map.set(key, merged);
+
+              // Auto-persist to regional_coordinators if missing
+              if (!existing.id) {
+                firestoreService.setDocument('regional_coordinators', merged.id, merged);
+              }
+            }
+          }
+        });
+
+        // 4. Teams that mention a regional coordinator
+        (rawTeams || []).forEach(t => {
+          if (!t) return;
+          const regEmail = (t.regionalCoordEmail || '').toLowerCase().trim();
+          const regName = t.regionalCoordName || t.regionalCoord || t.leader;
+          if (regEmail || (t.regionalCoordId && t.regionalCoordId !== 'geral')) {
+            const key = regEmail || (t.regionalCoordId ? t.regionalCoordId.toLowerCase().trim() : '');
+            if (key) {
+              const existing = map.get(key) || {};
+              const merged = {
+                id: existing.id || `reg_${key.replace(/[^a-zA-Z0-9]/g, '_')}`,
+                name: existing.name || regName || 'Coordenador Regional',
+                email: existing.email || (regEmail || `${key}@campanha.com`),
+                phone: existing.phone || '',
+                region: existing.region || t.location || t.zone || 'BOA VISTA',
+                subLocations: existing.subLocations || '',
+                targetVoters: existing.targetVoters || 500,
+                role: 'coordenador_regional',
+                tempPassword: existing.tempPassword || '123456',
+                coordinatorId: existing.coordinatorId || t.coordinatorId || coordinatorId || 'geral',
+                createdAt: existing.createdAt || Date.now()
+              };
+              map.set(key, merged);
+
+              // Auto-persist to regional_coordinators if missing
+              if (!existing.id) {
+                firestoreService.setDocument('regional_coordinators', merged.id, merged);
+              }
+            }
+          }
+        });
+
+        const list = Array.from(map.values());
+        setRegionalCoordinators(list);
+      } catch (e) {
+        console.warn("Erro ao sincronizar Coordenadores Regionais:", e);
+      }
+    };
+
+    syncRegionalCoordinators();
+
+    const unsubRegs = firestoreService.subscribeToCollectionFiltered<any>('regional_coordinators', coordinatorId, () => {
+      syncRegionalCoordinators();
+    });
 
     const unsubGoals = firestoreService.subscribeToCollectionFiltered<any>('goals', coordinatorId, (data) => setGoalsList(data));
 
@@ -619,7 +741,7 @@ export default function CoordinatorDashboard({
       unsubRegs();
       unsubGoals();
     };
-  }, [coordinatorId]);
+  }, [coordinatorId, teams]);
 
   const handleCreateRegionalCoordinator = async (e: React.FormEvent) => {
     e.preventDefault();
