@@ -1903,8 +1903,43 @@ export default function CoordinatorDashboard({
     if (!coordinatorId) return;
     try {
       const voters = await firestoreService.getCollectionFiltered<any>('voters', coordinatorId);
-      setTotalVotersCount(voters.length);
-      setVotedVotersCount(voters.filter(v => v.voted).length);
+      let scopedVoters = voters;
+      if (isRegional && !isGeral) {
+        const uId = user?.uid || user?.id || '';
+        const uEmail = (user?.email || profileData?.email || '').toLowerCase().trim();
+        const uRegion = (userRegion || profileData?.region || '').toUpperCase().trim();
+
+        scopedVoters = voters.filter((v: any) => {
+          if (uId && v.regionalCoordId && String(v.regionalCoordId) === String(uId)) return true;
+          if (uEmail && v.regionalCoordEmail && v.regionalCoordEmail.toLowerCase().trim() === uEmail) return true;
+
+          const voterRegion = (v.region || '').toUpperCase().trim();
+          if (uRegion && voterRegion && (voterRegion === uRegion || voterRegion.includes(uRegion) || uRegion.includes(voterRegion))) return true;
+
+          if (displayTeams && displayTeams.length > 0) {
+            const matchedTeam = displayTeams.find(t => 
+              (v.teamId && (v.teamId === t.id || v.teamId === t.name)) ||
+              (v.team && (v.team === t.name || v.team === t.id)) ||
+              (v.teamName && (v.teamName === t.name || v.teamName === t.id)) ||
+              isVoterInTeam(v, t)
+            );
+            if (matchedTeam) return true;
+          } else if (teams && teams.length > 0) {
+            const matchedTeam = teams.find(t => isVoterInTeam(v, t));
+            if (matchedTeam) {
+              const teamIsMyRegional = 
+                (uId && String(matchedTeam.regionalCoordId) === String(uId)) ||
+                (uEmail && matchedTeam.regionalCoordEmail && matchedTeam.regionalCoordEmail.toLowerCase().trim() === uEmail) ||
+                (uRegion && matchedTeam.region && matchedTeam.region.toUpperCase().trim() === uRegion);
+              if (teamIsMyRegional) return true;
+            }
+          }
+          if (!v.regionalCoordId && !v.teamId && (v.coordinatorId === uId || v.createdBy === uId)) return true;
+          return false;
+        });
+      }
+      setTotalVotersCount(scopedVoters.length);
+      setVotedVotersCount(scopedVoters.filter(v => v.voted).length);
     } catch (err) {
       console.warn("Erro ao buscar contagens agregadas do servidor:", err);
     }
@@ -2020,8 +2055,8 @@ export default function CoordinatorDashboard({
       }
 
       setAllVoters(displayVoters);
-      setTotalVotersCount(prev => Math.max(prev, displayVoters.length));
-      setVotedVotersCount(prev => Math.max(prev, displayVoters.filter(v => v.voted).length));
+      setTotalVotersCount(displayVoters.length);
+      setVotedVotersCount(displayVoters.filter(v => v.voted).length);
       safeLocalStorage.setItem(`urna360_voters_cache_${coordinatorId}`, JSON.stringify(displayVoters));
     };
 
@@ -2157,7 +2192,7 @@ export default function CoordinatorDashboard({
     },
     { 
       label: 'Contatos Base', 
-      value: totalVotersCount || allVoters.length, 
+      value: (isRegional && !isGeral) ? allVoters.length : (allVoters.length > 0 ? allVoters.length : totalVotersCount), 
       sub: 'Monitoramento Real', 
       color: 'text-emerald-600 dark:text-emerald-500',
       iconColor: 'bg-emerald-50 dark:bg-emerald-500/10',
