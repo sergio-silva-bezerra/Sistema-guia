@@ -184,6 +184,8 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
       coordinatorId: parentCoordId,
       teamId: teamLeaderDoc?.id || preReg?.teamId || profile?.teamId,
       teamName: teamLeaderDoc?.name || preReg?.teamName || profile?.teamName,
+      regionalCoordId: teamLeaderDoc?.regionalCoordId || preReg?.regionalCoordId || profile?.regionalCoordId || '',
+      regionalCoordEmail: teamLeaderDoc?.regionalCoordEmail || preReg?.regionalCoordEmail || profile?.regionalCoordEmail || '',
       createdAt: profile?.createdAt || Date.now()
     };
 

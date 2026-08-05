@@ -244,16 +244,18 @@ export const firestoreService = {
           const allMerged = Array.from(itemMap.values());
           setLocalList(path, allMerged);
 
-          if (!coordinatorId || coordinatorId === 'all') return allMerged as T[];
+          if (!coordinatorId || coordinatorId === 'all' || coordinatorId === 'geral') return allMerged as T[];
 
           return allMerged.filter(item => {
             if (!item) return false;
             const itemCoord = item.coordinatorId || item.coordinator_id;
             const itemReg = item.regionalCoordId;
+            const itemRegEmail = item.regionalCoordEmail;
             return (
               itemCoord === coordinatorId ||
               itemCoord === 'geral' ||
               itemReg === coordinatorId ||
+              itemRegEmail === coordinatorId ||
               item.coordinatorId === 'geral' ||
               !itemCoord
             );
@@ -264,15 +266,17 @@ export const firestoreService = {
       }
     }
 
-    if (!coordinatorId || coordinatorId === 'all') return localItems as T[];
+    if (!coordinatorId || coordinatorId === 'all' || coordinatorId === 'geral') return localItems as T[];
     return localItems.filter(item => {
       if (!item) return false;
       const itemCoord = item.coordinatorId || item.coordinator_id;
       const itemReg = item.regionalCoordId;
+      const itemRegEmail = item.regionalCoordEmail;
       return (
         itemCoord === coordinatorId ||
         itemCoord === 'geral' ||
         itemReg === coordinatorId ||
+        itemRegEmail === coordinatorId ||
         item.coordinatorId === 'geral' ||
         !itemCoord
       );

@@ -792,7 +792,15 @@ export default function CaboDashboard({
       if (isEditingVoter && editingVoterId) {
         await firestoreService.setDocument('voters', editingVoterId, {
           ...voterForm,
-          coordinatorId: activeCoordId,
+          leaderId: user.uid,
+          leaderName: profileData.name || teamData?.leader || user.displayName || "Líder",
+          leaderEmail: user.email || profileData.email || teamData?.leaderEmail || '',
+          team: teamData?.name || profileData.zone || "Base",
+          teamName: teamData?.name || profileData.zone || "Base",
+          teamId: teamData?.id || profileData.teamId || '',
+          coordinatorId: 'geral',
+          regionalCoordId: teamData?.regionalCoordId || profileData.regionalCoordId || user?.regionalCoordId || '',
+          regionalCoordEmail: teamData?.regionalCoordEmail || profileData.regionalCoordEmail || '',
           updatedAt: Date.now()
         }, true);
         await fetchServerCounts();
@@ -801,13 +809,17 @@ export default function CaboDashboard({
         const payload = {
           ...voterForm,
           leaderId: user.uid,
-          leaderName: profileData.name || user.displayName || "Líder",
+          leaderName: profileData.name || teamData?.leader || user.displayName || "Líder",
+          leaderEmail: user.email || profileData.email || teamData?.leaderEmail || '',
           team: teamData?.name || profileData.zone || "Base",
           teamName: teamData?.name || profileData.zone || "Base",
+          teamId: teamData?.id || profileData.teamId || '',
           createdAt: Date.now(),
           registeredBy: user.email || user.uid,
           createdBy: user.uid,
-          coordinatorId: activeCoordId,
+          coordinatorId: 'geral',
+          regionalCoordId: teamData?.regionalCoordId || profileData.regionalCoordId || user?.regionalCoordId || '',
+          regionalCoordEmail: teamData?.regionalCoordEmail || profileData.regionalCoordEmail || '',
           location: null
         };
         await firestoreService.setDocument('voters', `voter_${Date.now()}`, payload);
@@ -1039,13 +1051,17 @@ export default function CaboDashboard({
           const payload = {
             ...voter,
             leaderId: user.uid,
-            leaderName: profileData.name || user.displayName || "Líder",
+            leaderName: profileData.name || teamData?.leader || user.displayName || "Líder",
+            leaderEmail: user.email || profileData.email || teamData?.leaderEmail || '',
             team: teamData?.name || profileData.zone || "Base",
             teamName: teamData?.name || profileData.zone || "Base",
+            teamId: teamData?.id || profileData.teamId || '',
             createdAt: Date.now(),
             registeredBy: user.email || user.uid,
             createdBy: user.uid,
-            coordinatorId: activeCoordId,
+            coordinatorId: 'geral',
+            regionalCoordId: teamData?.regionalCoordId || profileData.regionalCoordId || user?.regionalCoordId || '',
+            regionalCoordEmail: teamData?.regionalCoordEmail || profileData.regionalCoordEmail || '',
             location: null
           };
 

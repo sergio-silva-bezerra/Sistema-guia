@@ -165,21 +165,36 @@ const AVAILABLE_COLUMNS_BY_TYPE: Record<string, { header: string; dataKey: strin
 
 export const isVoterInTeam = (voter: any, team: any) => {
   if (!voter || !team) return false;
+
+  // 1. Compare teamId
+  if (voter.teamId && team.id && voter.teamId === team.id) return true;
+
+  // 2. Compare team name (normalized - exact or substring match)
   const teamName = (team.name || '').trim().toLowerCase();
-  
-  const voterTeam = (voter.team || '').trim().toLowerCase();
-  const voterTeamName = (voter.teamName || '').trim().toLowerCase();
-  if (teamName && (voterTeam === teamName || voterTeamName === teamName)) return true;
+  const voterTeam = (voter.team || voter.teamName || voter.zone || '').trim().toLowerCase();
+  if (teamName && voterTeam) {
+    if (voterTeam === teamName || voterTeam.includes(teamName) || teamName.includes(voterTeam)) return true;
+  }
 
-  const teamLeader = (team.leader || '').trim().toLowerCase();
-  const voterLeader = (voter.leaderName || '').trim().toLowerCase();
-  if (teamLeader && voterLeader && teamLeader === voterLeader) return true;
+  // 3. Compare leader name (normalized - handles "Salatiel" matching "SALATIEL GONÇALVES")
+  const teamLeader = (team.leader || team.leaderName || '').trim().toLowerCase();
+  const voterLeader = (voter.leaderName || voter.leader || '').trim().toLowerCase();
+  if (teamLeader && voterLeader) {
+    if (teamLeader === voterLeader || teamLeader.includes(voterLeader) || voterLeader.includes(teamLeader)) return true;
+    const teamLeaderFirstName = teamLeader.split(' ')[0];
+    const voterLeaderFirstName = voterLeader.split(' ')[0];
+    if (teamLeaderFirstName.length >= 3 && teamLeaderFirstName === voterLeaderFirstName) return true;
+  }
 
+  // 4. Compare leader email
   const teamLeaderEmail = (team.leaderEmail || '').trim().toLowerCase();
   const voterLeaderEmail = (voter.leaderEmail || voter.registeredBy || voter.createdBy || '').trim().toLowerCase();
-  if (teamLeaderEmail && voterLeaderEmail && teamLeaderEmail === voterLeaderEmail) return true;
+  if (teamLeaderEmail && voterLeaderEmail) {
+    if (teamLeaderEmail === voterLeaderEmail || voterLeaderEmail.includes(teamLeaderEmail) || teamLeaderEmail.includes(voterLeaderEmail)) return true;
+  }
 
-  if (voter.leaderId && (voter.leaderId === team.id || voter.leaderId === team.leaderId || voter.leaderId === team.createdBy)) return true;
+  // 5. Compare leader ID / createdBy
+  if (voter.leaderId && (voter.leaderId === team.id || voter.leaderId === team.leaderId || voter.leaderId === team.createdBy || voter.leaderId === team.leaderEmail)) return true;
 
   return false;
 };
@@ -1799,7 +1814,7 @@ export default function CoordinatorDashboard({
   }, [coordinatorId, activeTab]);
 
   useEffect(() => {
-    if (!coordinatorId || teams.length === 0 || isGeral) return;
+    if (!coordinatorId || teams.length === 0) return;
 
     const healCoordinatorVotersAndRequests = async () => {
       try {
@@ -1809,14 +1824,28 @@ export default function CoordinatorDashboard({
         for (const team of teams) {
           const teamId = team.id || team.name.replace(/\s/g, '_').toLowerCase();
           
-          const teamVoters = allVoters.filter(v => v.teamId === teamId && v.coordinatorId !== coordinatorId);
+          const teamVoters = allVoters.filter(v => isVoterInTeam(v, team) || v.teamId === teamId);
           for (const v of teamVoters) {
-            await firestoreService.updateDocument('voters', v.id, { coordinatorId });
+            const updates: any = {};
+            if (v.coordinatorId !== 'geral' && v.coordinatorId !== coordinatorId) updates.coordinatorId = 'geral';
+            if (!v.teamId || v.teamId !== teamId) updates.teamId = teamId;
+            if (!v.teamName || v.teamName !== team.name) {
+              updates.team = team.name;
+              updates.teamName = team.name;
+            }
+            if (team.regionalCoordId && !v.regionalCoordId) updates.regionalCoordId = team.regionalCoordId;
+            if (team.regionalCoordEmail && !v.regionalCoordEmail) updates.regionalCoordEmail = team.regionalCoordEmail;
+            if (team.leader && !v.leaderName) updates.leaderName = team.leader;
+            if (team.leaderEmail && !v.leaderEmail) updates.leaderEmail = team.leaderEmail;
+
+            if (Object.keys(updates).length > 0) {
+              await firestoreService.updateDocument('voters', v.id, updates);
+            }
           }
 
-          const teamReqs = allRequests.filter(r => r.teamId === teamId && r.coordinatorId !== coordinatorId);
+          const teamReqs = allRequests.filter(r => (r.teamId === teamId || r.team === team.name) && r.coordinatorId !== coordinatorId);
           for (const r of teamReqs) {
-            await firestoreService.updateDocument('material_requests', r.id, { coordinatorId });
+            await firestoreService.updateDocument('material_requests', r.id, { coordinatorId: 'geral', teamId });
           }
         }
       } catch (err) {
@@ -1825,7 +1854,7 @@ export default function CoordinatorDashboard({
     };
 
     healCoordinatorVotersAndRequests();
-  }, [teams, coordinatorId, isGeral]);
+  }, [teams, coordinatorId]);
 
   // --- GLOBAL SEARCH LOGIC ---
   useEffect(() => {
