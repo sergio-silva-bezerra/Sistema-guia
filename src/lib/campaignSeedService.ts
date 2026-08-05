@@ -424,7 +424,7 @@ export const SEED_VOTERS: SeedVoter[] = [
     createdBy: 'roberto.lider@campanha.com'
   },
 
-  // --- CARACARAÍ ---
+  // --- CARACARAÍ (Equipe 03 - 7 Eleitores) ---
   {
     id: 'voter_car_1',
     name: 'Manoel Messias Ribeiro',
@@ -509,8 +509,120 @@ export const SEED_VOTERS: SeedVoter[] = [
     registeredBy: 'sueli.lider@campanha.com',
     createdBy: 'sueli.lider@campanha.com'
   },
+  {
+    id: 'voter_car_4',
+    name: 'Raimunda Nonata Pires',
+    phone: '(95) 99282-3304',
+    cpf: '456.789.012-34',
+    address: 'Av. Dr. Zanny, 502',
+    bairro: 'Centro',
+    municipio: 'Caracaraí',
+    zona: '002',
+    secao: '0008',
+    localVotacao: 'Escola Estadual José de Alencar',
+    leaderId: 'equipe_caracarai',
+    leaderName: 'Sueli Mendes (Líder Caracaraí)',
+    leaderEmail: 'sueli.lider@campanha.com',
+    team: 'Equipe 03 - Caracaraí Mobilização',
+    teamName: 'Equipe 03 - Caracaraí Mobilização',
+    teamId: 'equipe_caracarai',
+    coordinatorId: 'geral',
+    regionalCoordId: 'reg_joao_sul',
+    regionalCoordEmail: 'joao.regional@campanha.com',
+    votingIntent: 'Apoiador Convicto',
+    status: 'confirmado',
+    voted: false,
+    notes: 'Comerciante local de Caracaraí.',
+    createdAt: Date.now() - 86400000 * 10,
+    registeredBy: 'sueli.lider@campanha.com',
+    createdBy: 'sueli.lider@campanha.com'
+  },
+  {
+    id: 'voter_car_5',
+    name: 'Francisco Assis Vasconcelos',
+    phone: '(95) 99282-3305',
+    cpf: '567.890.123-45',
+    address: 'Rua B, 33',
+    bairro: 'Nossa Senhora do Livramento',
+    municipio: 'Caracaraí',
+    zona: '002',
+    secao: '0012',
+    localVotacao: 'Escola Municipal Presidente Castelo Branco',
+    leaderId: 'equipe_caracarai',
+    leaderName: 'Sueli Mendes (Líder Caracaraí)',
+    leaderEmail: 'sueli.lider@campanha.com',
+    team: 'Equipe 03 - Caracaraí Mobilização',
+    teamName: 'Equipe 03 - Caracaraí Mobilização',
+    teamId: 'equipe_caracarai',
+    coordinatorId: 'geral',
+    regionalCoordId: 'reg_joao_sul',
+    regionalCoordEmail: 'joao.regional@campanha.com',
+    votingIntent: 'Simpatizante',
+    status: 'confirmado',
+    voted: false,
+    notes: 'Atua na associação de moradores.',
+    createdAt: Date.now() - 86400000 * 9,
+    registeredBy: 'sueli.lider@campanha.com',
+    createdBy: 'sueli.lider@campanha.com'
+  },
+  {
+    id: 'voter_car_6',
+    name: 'Maria das Dores Camargo',
+    phone: '(95) 99282-3306',
+    cpf: '678.901.234-56',
+    address: 'Rua São Francisco, 210',
+    bairro: 'Livramento',
+    municipio: 'Caracaraí',
+    zona: '002',
+    secao: '0015',
+    localVotacao: 'Escola Municipal Presidente Castelo Branco',
+    leaderId: 'equipe_caracarai',
+    leaderName: 'Sueli Mendes (Líder Caracaraí)',
+    leaderEmail: 'sueli.lider@campanha.com',
+    team: 'Equipe 03 - Caracaraí Mobilização',
+    teamName: 'Equipe 03 - Caracaraí Mobilização',
+    teamId: 'equipe_caracarai',
+    coordinatorId: 'geral',
+    regionalCoordId: 'reg_joao_sul',
+    regionalCoordEmail: 'joao.regional@campanha.com',
+    votingIntent: 'Apoiador Convicto',
+    status: 'confirmado',
+    voted: false,
+    notes: 'Organiza encontros comunitários em Caracaraí.',
+    createdAt: Date.now() - 86400000 * 8,
+    registeredBy: 'sueli.lider@campanha.com',
+    createdBy: 'sueli.lider@campanha.com'
+  },
+  {
+    id: 'voter_car_7',
+    name: 'João Batista de Moraes',
+    phone: '(95) 99282-3307',
+    cpf: '789.012.345-67',
+    address: 'Av. Kennedy, 1050',
+    bairro: 'Centro',
+    municipio: 'Caracaraí',
+    zona: '002',
+    secao: '0006',
+    localVotacao: 'Escola Estadual José de Alencar',
+    leaderId: 'equipe_caracarai',
+    leaderName: 'Sueli Mendes (Líder Caracaraí)',
+    leaderEmail: 'sueli.lider@campanha.com',
+    team: 'Equipe 03 - Caracaraí Mobilização',
+    teamName: 'Equipe 03 - Caracaraí Mobilização',
+    teamId: 'equipe_caracarai',
+    coordinatorId: 'geral',
+    regionalCoordId: 'reg_joao_sul',
+    regionalCoordEmail: 'joao.regional@campanha.com',
+    votingIntent: 'Apoiador Convicto',
+    status: 'confirmado',
+    voted: false,
+    notes: 'Apoiador engajado e multiplicador de votos.',
+    createdAt: Date.now() - 86400000 * 7,
+    registeredBy: 'sueli.lider@campanha.com',
+    createdBy: 'sueli.lider@campanha.com'
+  },
 
-  // --- RORAINÓPOLIS ---
+  // --- RORAINÓPOLIS (Equipe 04 - 7 Eleitores) ---
   {
     id: 'voter_ror_1',
     name: 'Antônio Carlos Ferreira',
@@ -592,6 +704,118 @@ export const SEED_VOTERS: SeedVoter[] = [
     voted: false,
     notes: 'Organiza reunião de moradores no Parque das Orquídeas.',
     createdAt: Date.now() - 86400000 * 9,
+    registeredBy: 'paulo.lider@campanha.com',
+    createdBy: 'paulo.lider@campanha.com'
+  },
+  {
+    id: 'voter_sjb_1',
+    name: 'Ezequiel Viana Santos',
+    phone: '(95) 99282-9901',
+    cpf: '345.012.345-01',
+    address: 'Av. Brasil, 230',
+    bairro: 'Centro',
+    municipio: 'Rorainópolis',
+    zona: '008',
+    secao: '0002',
+    localVotacao: 'Escola Estadual Francisco Ricardo',
+    leaderId: 'equipe_rorainopolis',
+    leaderName: 'Paulo César (Líder Rorainópolis)',
+    leaderEmail: 'paulo.lider@campanha.com',
+    team: 'Equipe 04 - Rorainópolis Centro & Sul',
+    teamName: 'Equipe 04 - Rorainópolis Centro & Sul',
+    teamId: 'equipe_rorainopolis',
+    coordinatorId: 'geral',
+    regionalCoordId: 'reg_joao_sul',
+    regionalCoordEmail: 'joao.regional@campanha.com',
+    votingIntent: 'Apoiador Convicto',
+    status: 'confirmado',
+    voted: false,
+    notes: 'Produtor rural da região sul.',
+    createdAt: Date.now() - 86400000 * 3,
+    registeredBy: 'paulo.lider@campanha.com',
+    createdBy: 'paulo.lider@campanha.com'
+  },
+  {
+    id: 'voter_ror_5',
+    name: 'Cláudia Maria Figueiredo',
+    phone: '(95) 99282-4405',
+    cpf: '890.123.456-78',
+    address: 'Rua A, 45',
+    bairro: 'Suely Campos',
+    municipio: 'Rorainópolis',
+    zona: '008',
+    secao: '0014',
+    localVotacao: 'Escola Estadual José de Alencar (Rorainópolis)',
+    leaderId: 'equipe_rorainopolis',
+    leaderName: 'Paulo César (Líder Rorainópolis)',
+    leaderEmail: 'paulo.lider@campanha.com',
+    team: 'Equipe 04 - Rorainópolis Centro & Sul',
+    teamName: 'Equipe 04 - Rorainópolis Centro & Sul',
+    teamId: 'equipe_rorainopolis',
+    coordinatorId: 'geral',
+    regionalCoordId: 'reg_joao_sul',
+    regionalCoordEmail: 'joao.regional@campanha.com',
+    votingIntent: 'Apoiador Convicto',
+    status: 'confirmado',
+    voted: false,
+    notes: 'Liderança do bairro Suely Campos em Rorainópolis.',
+    createdAt: Date.now() - 86400000 * 8,
+    registeredBy: 'paulo.lider@campanha.com',
+    createdBy: 'paulo.lider@campanha.com'
+  },
+  {
+    id: 'voter_ror_6',
+    name: 'Marcos Aurélio Siqueira',
+    phone: '(95) 99282-4406',
+    cpf: '901.234.567-89',
+    address: 'Av. Yane, 110',
+    bairro: 'Centro',
+    municipio: 'Rorainópolis',
+    zona: '008',
+    secao: '0018',
+    localVotacao: 'Escola Municipal Antônio Vieira de Melo',
+    leaderId: 'equipe_rorainopolis',
+    leaderName: 'Paulo César (Líder Rorainópolis)',
+    leaderEmail: 'paulo.lider@campanha.com',
+    team: 'Equipe 04 - Rorainópolis Centro & Sul',
+    teamName: 'Equipe 04 - Rorainópolis Centro & Sul',
+    teamId: 'equipe_rorainopolis',
+    coordinatorId: 'geral',
+    regionalCoordId: 'reg_joao_sul',
+    regionalCoordEmail: 'joao.regional@campanha.com',
+    votingIntent: 'Simpatizante',
+    status: 'confirmado',
+    voted: false,
+    notes: 'Membro ativo de associação comunitária.',
+    createdAt: Date.now() - 86400000 * 7,
+    registeredBy: 'paulo.lider@campanha.com',
+    createdBy: 'paulo.lider@campanha.com'
+  },
+  {
+    id: 'voter_ror_7',
+    name: 'Tereza Cristina Mendes',
+    phone: '(95) 99282-4407',
+    cpf: '012.345.678-90',
+    address: 'Rua 3, 88',
+    bairro: 'Campinarana',
+    municipio: 'Rorainópolis',
+    zona: '008',
+    secao: '0022',
+    localVotacao: 'Escola Municipal Antônio Vieira de Melo',
+    leaderId: 'equipe_rorainopolis',
+    leaderName: 'Paulo César (Líder Rorainópolis)',
+    leaderEmail: 'paulo.lider@campanha.com',
+    team: 'Equipe 04 - Rorainópolis Centro & Sul',
+    teamName: 'Equipe 04 - Rorainópolis Centro & Sul',
+    teamId: 'equipe_rorainopolis',
+    coordinatorId: 'geral',
+    regionalCoordId: 'reg_joao_sul',
+    regionalCoordEmail: 'joao.regional@campanha.com',
+    votingIntent: 'Apoiador Convicto',
+    status: 'confirmado',
+    voted: false,
+    notes: 'Apoiadora engajada da equipe de Rorainópolis.',
+    createdAt: Date.now() - 86400000 * 6,
     registeredBy: 'paulo.lider@campanha.com',
     createdBy: 'paulo.lider@campanha.com'
   },
@@ -770,36 +994,6 @@ export const SEED_VOTERS: SeedVoter[] = [
     createdAt: Date.now() - 86400000 * 4,
     registeredBy: 'gilson.lider@campanha.com',
     createdBy: 'gilson.lider@campanha.com'
-  },
-
-  // --- SÃO JOÃO DA BALIZA ---
-  {
-    id: 'voter_sjb_1',
-    name: 'Ezequiel Viana Santos',
-    phone: '(95) 99282-9901',
-    cpf: '345.012.345-01',
-    address: 'Av. Brasil, 230',
-    bairro: 'Centro',
-    municipio: 'São João da Baliza',
-    zona: '004',
-    secao: '0002',
-    localVotacao: 'Escola Estadual Francisco Ricardo',
-    leaderId: 'equipe_rorainopolis',
-    leaderName: 'Paulo César (Líder Rorainópolis)',
-    leaderEmail: 'paulo.lider@campanha.com',
-    team: 'Equipe 04 - Rorainópolis Centro & Sul',
-    teamName: 'Equipe 04 - Rorainópolis Centro & Sul',
-    teamId: 'equipe_rorainopolis',
-    coordinatorId: 'geral',
-    regionalCoordId: 'reg_joao_sul',
-    regionalCoordEmail: 'joao.regional@campanha.com',
-    votingIntent: 'Apoiador Convicto',
-    status: 'confirmado',
-    voted: false,
-    notes: 'Produtor rural de São João da Baliza.',
-    createdAt: Date.now() - 86400000 * 3,
-    registeredBy: 'paulo.lider@campanha.com',
-    createdBy: 'paulo.lider@campanha.com'
   }
 ];
 
@@ -812,11 +1006,29 @@ export async function ensureSeedCampaignData(): Promise<void> {
   try {
     const existingVoters = await firestoreService.getCollection<any>('voters');
     
-    // 1. Seed Voters if none or less than 5 voters exist
-    if (!existingVoters || existingVoters.length < 5) {
+    // 1. Seed / Sync Voters: ensure all SEED_VOTERS exist with correct team data
+    if (!existingVoters || existingVoters.length < SEED_VOTERS.length) {
       console.log("🌱 Alimentando base de eleitores cadastrados por líderes de equipe...");
       for (const voter of SEED_VOTERS) {
         await firestoreService.setDocument('voters', voter.id, voter, true);
+      }
+    } else {
+      for (const voter of SEED_VOTERS) {
+        const found = existingVoters.find(ev => ev.id === voter.id);
+        if (!found) {
+          await firestoreService.setDocument('voters', voter.id, voter, true);
+        } else if (found.teamId !== voter.teamId || found.teamName !== voter.teamName || found.leaderName !== voter.leaderName) {
+          await firestoreService.updateDocument('voters', voter.id, {
+            teamId: voter.teamId,
+            team: voter.team,
+            teamName: voter.teamName,
+            leaderId: voter.leaderId,
+            leaderName: voter.leaderName,
+            leaderEmail: voter.leaderEmail,
+            regionalCoordId: voter.regionalCoordId,
+            regionalCoordEmail: voter.regionalCoordEmail
+          });
+        }
       }
     }
 
