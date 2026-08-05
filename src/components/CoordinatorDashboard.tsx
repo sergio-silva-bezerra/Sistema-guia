@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import logoImg from '../assets/logo.png';
 import { TreLocationFields } from './TreLocationFields';
 import { WhatsAppDispatchModal } from './WhatsAppDispatchModal';
@@ -2064,6 +2064,52 @@ export default function CoordinatorDashboard({
     healCoordinatorVotersAndRequests();
   }, [teams, coordinatorId]);
 
+  // --- FILTER TEAMS FOR REGIONAL COORDINATOR ---
+  const displayTeams = useMemo(() => {
+    if (isGeral || (!isRegional && !isLeader)) {
+      return teams;
+    }
+
+    const uId = user?.uid || user?.id || '';
+    const uEmail = (user?.email || profileData?.email || '').toLowerCase().trim();
+    const uEmailPrefix = uEmail.split('@')[0];
+    const uRegion = (userRegion || profileData?.region || '').toUpperCase().trim();
+    const isAntonio = uEmail.includes('antonio') || 
+                      (profileData?.name && profileData.name.toLowerCase().includes('antonio')) || 
+                      (profileData?.email && profileData.email.toLowerCase().includes('antonio'));
+
+    return teams.filter(t => {
+      if (!t) return false;
+
+      // 1. Check regionalCoordId
+      const tRegId = String(t.regionalCoordId || '');
+      if (uId && tRegId && (tRegId === String(uId) || tRegId === String(profileData?.id))) return true;
+      if (tRegId === 'reg_antonio_norte' && isAntonio) return true;
+
+      // 2. Check regionalCoordEmail
+      const tRegEmail = (t.regionalCoordEmail || '').toLowerCase().trim();
+      if (uEmail && tRegEmail && (tRegEmail === uEmail || tRegEmail.split('@')[0] === uEmailPrefix)) return true;
+      if (isAntonio && (tRegEmail.includes('antonio') || t.name.toLowerCase().includes('pintolândia') || t.name.toLowerCase().includes('centro') || t.name.toLowerCase().includes('pacaraima'))) return true;
+
+      // 3. Check region
+      const tRegion = (t.region || '').toUpperCase().trim();
+      if (uRegion && tRegion && (tRegion === uRegion || tRegion.includes(uRegion) || uRegion.includes(tRegion))) return true;
+
+      // 4. Check if voters belonging to this regional coordinator are in this team
+      if (allVoters && allVoters.length > 0) {
+        const isTeamInMyVoters = allVoters.some(v => 
+          (v.teamId && (v.teamId === t.id || v.teamId === t.name)) || 
+          (v.team && (v.team === t.name || v.team === t.id)) || 
+          (v.teamName && (v.teamName === t.name || v.teamName === t.id)) ||
+          isVoterInTeam(v, t)
+        );
+        if (isTeamInMyVoters) return true;
+      }
+
+      return false;
+    });
+  }, [teams, isGeral, isRegional, isLeader, user, userRegion, profileData, allVoters]);
+
   // --- GLOBAL SEARCH LOGIC ---
   useEffect(() => {
     if (!searchQuery.trim() || searchQuery.length < 2) {
@@ -2073,9 +2119,10 @@ export default function CoordinatorDashboard({
 
     const queryLower = searchQuery.toLowerCase();
 
-    const filteredTeams = teams.filter(t => 
+    const filteredTeams = displayTeams.filter(t => 
       t.zone?.toLowerCase().includes(queryLower) || 
-      t.leaderName?.toLowerCase().includes(queryLower)
+      t.leaderName?.toLowerCase().includes(queryLower) ||
+      t.name?.toLowerCase().includes(queryLower)
     );
 
     const filteredNotes = notes.filter(n => 
@@ -2094,14 +2141,14 @@ export default function CoordinatorDashboard({
       notes: filteredNotes,
       agendas: filteredAgendas
     });
-  }, [searchQuery, teams, notes, agendas]);
+  }, [searchQuery, displayTeams, notes, agendas]);
 
   const totalResults = searchResults.teams.length + searchResults.notes.length + searchResults.agendas.length;
 
   const stats = [
     { 
       label: 'Equipes Ativas', 
-      value: teams.length, 
+      value: displayTeams.length, 
       sub: 'Gestão de Líderes', 
       color: 'text-[var(--text-primary)]',
       iconColor: 'bg-zinc-100 dark:bg-zinc-800',
@@ -2883,7 +2930,7 @@ export default function CoordinatorDashboard({
                         < Zap className="w-3.5 h-3.5 text-blue-600" /> Atividade Recente
                       </h3>
                       <div className="space-y-4">
-                        {teams.slice(0, 4).map((team, i) => (
+                        {displayTeams.slice(0, 4).map((team, i) => (
                           <div key={i} className="flex gap-3 group/item cursor-default">
                             <div className="w-8 h-8 rounded-sm bg-[var(--bg-tertiary)] flex items-center justify-center shrink-0 border border-[var(--border-color)] group-hover/item:border-blue-600/30 transition-colors">
                               <Users className="w-3.5 h-3.5 text-[var(--text-secondary)] group-hover/item:text-blue-600 transition-colors" />
@@ -3438,7 +3485,7 @@ export default function CoordinatorDashboard({
                         className="w-full bg-[var(--bg-tertiary)] text-[var(--text-primary)] border border-[var(--border-color)] rounded-md p-2 font-medium text-xs outline-none focus:border-blue-600 transition-all"
                       >
                         <option value="">-- Escolha uma equipe --</option>
-                        {teams.map((t) => (
+                        {displayTeams.map((t) => (
                           <option key={t.id || t.name} value={t.id || t.name.replace(/\s/g, '_').toLowerCase()}>
                             {t.name} (Líder: {t.leader || 'N/A'})
                           </option>
@@ -3476,7 +3523,7 @@ export default function CoordinatorDashboard({
                 </div>
                 
                 <div className="grid grid-cols-1 gap-3">
-                  {teams.length > 0 ? teams.map((team) => (
+                  {displayTeams.length > 0 ? displayTeams.map((team) => (
                     <motion.div 
                       key={team.id || team.name} 
                       layout
@@ -6266,7 +6313,7 @@ export default function CoordinatorDashboard({
                          className="w-full bg-zinc-50 border border-zinc-200 rounded-sm p-4 font-black text-[11px] text-zinc-900 outline-none focus:border-blue-600 transition-all"
                        >
                          <option value="">TODAS AS EQUIPES</option>
-                         {teams.map(t => (
+                         {displayTeams.map(t => (
                            <option key={t.id} value={t.name}>{t.name.toUpperCase()}</option>
                          ))}
                        </select>
@@ -6572,7 +6619,7 @@ export default function CoordinatorDashboard({
                     className="w-full bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-sm p-3 font-bold text-xs outline-none focus:border-blue-600"
                   >
                     <option value="">-- Cadastro Geral (Sem Equipe Específica) --</option>
-                    {teams.map(t => (
+                    {displayTeams.map(t => (
                       <option key={t.id} value={t.id}>{t.name} - Líder: {t.leaderName || t.leader}</option>
                     ))}
                   </select>

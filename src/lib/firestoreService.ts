@@ -54,7 +54,7 @@ export const firestoreService = {
 
           const allMerged = Array.from(itemMap.values());
           setLocalList(path, allMerged);
-          if (path === 'voters' && allMerged.length === 0) {
+          if ((path === 'voters' || path === 'teams') && allMerged.length === 0) {
             import('./campaignSeedService').then(m => m.ensureSeedCampaignData()).catch(() => {});
           }
           return allMerged as T[];
@@ -63,7 +63,7 @@ export const firestoreService = {
         console.warn(`Supabase getCollection error for ${path}:`, e);
       }
     }
-    if (path === 'voters' && localItems.length === 0) {
+    if ((path === 'voters' || path === 'teams') && localItems.length === 0) {
       import('./campaignSeedService').then(m => m.ensureSeedCampaignData()).catch(() => {});
     }
     return localItems as T[];
@@ -255,7 +255,7 @@ export const firestoreService = {
 
           const allMerged = Array.from(itemMap.values());
           setLocalList(path, allMerged);
-          if (path === 'voters' && allMerged.length === 0) {
+          if ((path === 'voters' || path === 'teams') && allMerged.length === 0) {
             import('./campaignSeedService').then(m => m.ensureSeedCampaignData()).catch(() => {});
           }
 
