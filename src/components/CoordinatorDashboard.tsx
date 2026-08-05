@@ -634,12 +634,16 @@ export default function CoordinatorDashboard({
         email: cleanEmail,
         subLocations: newRegCoord.subLocations || '',
         targetVoters: Number(newRegCoord.targetVoters) || 500,
+        role: 'coordenador_regional',
         tempPassword,
         coordinatorId: coordinatorId || user?.uid || '',
         createdAt: Date.now()
       };
 
       await firestoreService.setDocument('regional_coordinators', coordId, regRecord);
+      if (emailPrefix && emailPrefix !== cleanEmail) {
+        await firestoreService.setDocument('regional_coordinators', `reg_${emailPrefix}`, regRecord);
+      }
 
       const preRegData = {
         email: cleanEmail,

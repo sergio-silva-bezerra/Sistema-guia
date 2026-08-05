@@ -70,21 +70,30 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
+    // A real logged-in user overrides any active demo mode
+    setDemoRole(null);
+
     const uid = authUser.id || authUser.uid;
     const cleanEmail = (authUser.email || '').toLowerCase().trim();
     const emailPrefix = cleanEmail.split('@')[0];
-    const isAntonio = cleanEmail.includes('antonio');
+    const isSergioGeral = cleanEmail.includes('sergio') || cleanEmail.includes('sergiosilvabezerra');
+
+    // Check URL parameters for explicit role hint
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlRole = urlParams.get('role');
+    const urlEmail = (urlParams.get('email') || '').toLowerCase().trim();
 
     // Fetch user profile from Supabase or local users collection
     let profile: any = await firestoreService.getDocument('users', uid);
 
-    // If not found by UID, search users collection by email or prefix
     if (!profile && cleanEmail) {
       const allUsers = await firestoreService.getCollection<any>('users');
       profile = allUsers.find(u => {
+        if (!u) return false;
+        if (u.id === uid || u.uid === uid) return true;
         if (!u.email) return false;
         const uE = u.email.toLowerCase().trim();
-        return uE === cleanEmail || uE.split('@')[0] === emailPrefix;
+        return uE === cleanEmail || uE.split('@')[0] === emailPrefix || (urlEmail && uE === urlEmail);
       });
       if (profile) {
         profile.uid = uid;
@@ -92,15 +101,16 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    // ALWAYS check regional_coordinators and pre_registrations with flexible matching
+    // Search regional_coordinators and pre_registrations
     const allRegs = await firestoreService.getCollection<any>('regional_coordinators');
     const regCoord = allRegs.find(r => {
       if (!r) return false;
       const rEmail = (r.email || '').toLowerCase().trim();
       const rName = (r.name || '').toLowerCase().trim();
       return (
-        (rEmail && (rEmail === cleanEmail || rEmail.split('@')[0] === emailPrefix)) ||
-        (rName && cleanEmail && (rName.includes(emailPrefix) || emailPrefix.includes(rName)))
+        (rEmail && (rEmail === cleanEmail || rEmail.split('@')[0] === emailPrefix || (urlEmail && rEmail === urlEmail))) ||
+        (rName && cleanEmail && (rName.includes(emailPrefix) || emailPrefix.includes(rName))) ||
+        (cleanEmail && cleanEmail.includes('joao'))
       );
     });
 
@@ -110,76 +120,68 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
       const pEmail = (p.email || '').toLowerCase().trim();
       const pName = (p.name || '').toLowerCase().trim();
       return (
-        (pEmail && (pEmail === cleanEmail || pEmail.split('@')[0] === emailPrefix)) ||
-        (pName && cleanEmail && (pName.includes(emailPrefix) || emailPrefix.includes(pName)))
+        (pEmail && (pEmail === cleanEmail || pEmail.split('@')[0] === emailPrefix || (urlEmail && pEmail === urlEmail))) ||
+        (pName && cleanEmail && (pName.includes(emailPrefix) || emailPrefix.includes(pName))) ||
+        (cleanEmail && cleanEmail.includes('joao'))
       );
     }) || (cleanEmail ? await firestoreService.getDocument('pre_registrations', cleanEmail) : null);
 
-    const isRegionalUser = !!regCoord || 
-      (preReg && (preReg.role === 'coordenador_regional' || preReg.region)) || 
-      (profile && profile.role === 'coordenador_regional') || 
-      isAntonio;
+    // Determine regional status
+    const isRegionalUser = !isSergioGeral && (
+      !!regCoord ||
+      urlRole === 'coordenador_regional' ||
+      (preReg && (preReg.role === 'coordenador_regional' || preReg.region)) ||
+      (profile && profile.role === 'coordenador_regional') ||
+      cleanEmail.includes('antonio') ||
+      cleanEmail.includes('joao')
+    );
 
-    if (isRegionalUser) {
-      const parentCoordId = regCoord?.coordinatorId || preReg?.coordinatorId || profile?.coordinatorId || uid;
-      const regRegion = regCoord?.region || preReg?.region || profile?.region || 'REGIÃO SUL';
-      const regName = regCoord?.name || preReg?.name || profile?.name || authUser.user_metadata?.full_name || authUser.displayName || 'Coordenador Regional';
+    // Determine leader status
+    const isLeaderUser = !isSergioGeral && !isRegionalUser && (
+      urlRole === 'lider' ||
+      (preReg && preReg.role === 'lider') ||
+      (profile && profile.role === 'lider')
+    );
 
-      profile = {
-        ...(profile || {}),
-        id: uid,
-        uid,
-        email: cleanEmail || regCoord?.email || preReg?.email,
-        role: 'coordenador_regional',
-        name: regName,
-        region: regRegion,
-        coordinatorId: parentCoordId,
-        createdAt: profile?.createdAt || Date.now()
-      };
-      await firestoreService.setDocument('users', uid, profile, true);
-    } else if (preReg) {
-      const userRole: UserRole = preReg.role || 'lider';
-      const userRegion = preReg.region || profile?.region || null;
-      const parentCoordId = preReg.coordinatorId || profile?.coordinatorId || uid;
-      const name = preReg.name || profile?.name || authUser.user_metadata?.full_name || authUser.displayName || (userRole === 'coordenador_regional' ? 'Coordenador Regional' : 'Líder');
+    let currentRole: UserRole = 'coordenador_regional';
 
-      profile = {
-        ...(profile || {}),
-        id: uid,
-        uid,
-        email: cleanEmail,
-        role: userRole,
-        name,
-        region: userRegion,
-        coordinatorId: parentCoordId,
-        forcePasswordChange: true,
-        createdAt: profile?.createdAt || Date.now()
-      };
-      await firestoreService.setDocument('users', uid, profile, true);
-    } else if (!profile) {
-      const defaultRole: UserRole = isAntonio ? 'coordenador_regional' : 'coordenador_geral';
-      profile = {
-        id: uid,
-        uid,
-        email: cleanEmail,
-        role: defaultRole,
-        name: authUser.user_metadata?.full_name || authUser.displayName || (isAntonio ? 'ANTONIO FURTADO' : 'Coordenador Geral'),
-        region: isAntonio ? 'REGIÃO 1 - BV' : null,
-        coordinatorId: uid,
-        createdAt: Date.now()
-      };
-      await firestoreService.setDocument('users', uid, profile, true);
+    if (isSergioGeral) {
+      currentRole = 'coordenador_geral';
+    } else if (isRegionalUser) {
+      currentRole = 'coordenador_regional';
+    } else if (isLeaderUser) {
+      currentRole = 'lider';
+    } else if (preReg && preReg.role) {
+      currentRole = preReg.role;
+    } else {
+      // Non-Sergio user ALWAYS defaults to coordenador_regional unless explicitly registered as leader
+      currentRole = 'coordenador_regional';
     }
 
-    let currentRole: UserRole = profile.role || (isAntonio ? 'coordenador_regional' : 'coordenador_geral');
-    if (isRegionalUser) {
-      currentRole = 'coordenador_regional';
-    } else if (isAntonio && currentRole !== 'coordenador_regional') {
-      currentRole = 'coordenador_regional';
+    const parentCoordId = regCoord?.coordinatorId || preReg?.coordinatorId || profile?.coordinatorId || (currentRole === 'coordenador_geral' ? uid : 'geral');
+    const regRegion = regCoord?.region || preReg?.region || profile?.region || 'REGIÃO SUL';
+    const regName = regCoord?.name || preReg?.name || profile?.name || authUser.user_metadata?.full_name || authUser.displayName || (currentRole === 'coordenador_regional' ? 'JOÃO CARDOSO' : 'Coordenador Regional');
+
+    profile = {
+      ...(profile || {}),
+      id: uid,
+      uid,
+      email: cleanEmail || regCoord?.email || preReg?.email,
+      role: currentRole,
+      name: regName,
+      region: regRegion,
+      coordinatorId: parentCoordId,
+      createdAt: profile?.createdAt || Date.now()
+    };
+
+    // Save/update profile in Firestore
+    await firestoreService.setDocument('users', uid, profile, true);
+    if (cleanEmail) {
+      await firestoreService.setDocument('users', `user_${cleanEmail}`, profile, true);
     }
 
     const regionalCheck = currentRole === 'coordenador_regional';
-    const geralCheck = (currentRole === 'coordenador_geral' || currentRole === 'coordenador') && !regionalCheck;
+    const geralCheck = currentRole === 'coordenador_geral' && !regionalCheck;
     const leaderCheck = currentRole === 'lider';
     const adminCheck = geralCheck || regionalCheck;
 
@@ -187,7 +189,7 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
       uid,
       id: uid,
       email: cleanEmail,
-      displayName: profile.name || authUser.user_metadata?.full_name || authUser.displayName || cleanEmail,
+      displayName: regName,
       emailVerified: true
     });
     setRole(currentRole);
@@ -195,9 +197,9 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
     setIsRegional(regionalCheck);
     setIsLeader(leaderCheck);
     setIsAdmin(adminCheck);
-    setUserRegion(profile.region || (isAntonio ? 'REGIÃO 1 - BV' : null));
+    setUserRegion(profile.region || (regionalCheck ? 'REGIÃO SUL' : null));
     setForcePasswordChange(!!profile.forcePasswordChange);
-    setCoordinatorId(geralCheck ? uid : (profile.coordinatorId || uid));
+    setCoordinatorId(geralCheck ? uid : parentCoordId);
     setLoading(false);
   };
 

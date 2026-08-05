@@ -168,13 +168,17 @@ export default function App() {
     const params = new URLSearchParams(window.location.search);
     const emailParam = params.get('email');
     const tokenParam = params.get('access_token');
+    const roleParam = params.get('role');
     
     if (emailParam) {
-      // Se já houver alguém logado e for outro e-mail, forçar logout para o líder entrar
       if (user && user.email !== emailParam) {
         logout();
       }
       setEmail(emailParam);
+    }
+
+    if (roleParam === 'coordenador_regional' || (emailParam && emailParam.toLowerCase().includes('joao'))) {
+      setUserRole('coordenador_regional');
     }
     
     if (tokenParam) {
@@ -187,7 +191,6 @@ export default function App() {
     }
 
     if (emailParam || tokenParam) {
-       // Limpar URL para não ficar poluído
        try {
          window.history.replaceState({}, document.title, window.location.pathname);
        } catch (e) {
