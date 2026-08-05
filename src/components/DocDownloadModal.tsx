@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { FileText, Download, CheckCircle, ShieldCheck, Briefcase, HardDrive } from 'lucide-react';
+import { FileText, Download, CheckCircle, ShieldCheck, Briefcase, HardDrive, UserCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { downloadRequirementsDoc, downloadStrategicPlanDoc } from '../utils/docGenerator';
+import { downloadRequirementsDoc, downloadStrategicPlanDoc, downloadFrontendFuncDoc } from '../utils/docGenerator';
 
 interface DocDownloadModalProps {
   isOpen: boolean;
@@ -9,7 +9,15 @@ interface DocDownloadModalProps {
 }
 
 export const DocDownloadModal: React.FC<DocDownloadModalProps> = ({ isOpen, onClose }) => {
-  const [downloadedType, setDownloadedType] = useState<'req' | 'strat' | null>(null);
+  const [downloadedType, setDownloadedType] = useState<'req' | 'strat' | 'front' | null>(null);
+
+  const handleDownloadFrontendFunc = () => {
+    downloadFrontendFuncDoc();
+    setDownloadedType('front');
+    setTimeout(() => {
+      setDownloadedType(null);
+    }, 4000);
+  };
 
   const handleDownloadRequirements = () => {
     downloadRequirementsDoc();
@@ -82,17 +90,34 @@ export const DocDownloadModal: React.FC<DocDownloadModalProps> = ({ isOpen, onCl
           {/* Action buttons */}
           <div className="flex flex-col gap-2.5">
             <button
-              onClick={handleDownloadStrategicPlan}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg flex items-center justify-center gap-2 transition-all shadow-md active:scale-95 text-xs uppercase tracking-wider"
+              onClick={handleDownloadFrontendFunc}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 px-4 rounded-lg flex items-center justify-center gap-2 transition-all shadow-md active:scale-95 text-xs uppercase tracking-wider"
             >
-              {downloadedType === 'strat' ? (
+              {downloadedType === 'front' ? (
                 <>
                   <CheckCircle className="w-4 h-4 text-emerald-300" />
-                  <span>Plano Estratégico Baixado (.DOC)!</span>
+                  <span>Manual do Front-End Baixado (.DOC)!</span>
                 </>
               ) : (
                 <>
                   <Download className="w-4 h-4" />
+                  <span>Baixar Manual do Front-End &amp; Perfis (.DOC)</span>
+                </>
+              )}
+            </button>
+
+            <button
+              onClick={handleDownloadStrategicPlan}
+              className="w-full bg-[var(--bg-tertiary)] hover:bg-[var(--bg-primary)] text-[var(--text-primary)] font-bold py-3 px-4 rounded-lg border border-[var(--border-color)] flex items-center justify-center gap-2 transition-all active:scale-95 text-xs uppercase tracking-wider"
+            >
+              {downloadedType === 'strat' ? (
+                <>
+                  <CheckCircle className="w-4 h-4 text-emerald-500" />
+                  <span>Plano Estratégico Baixado (.DOC)!</span>
+                </>
+              ) : (
+                <>
+                  <Briefcase className="w-4 h-4 text-blue-500" />
                   <span>Baixar Plano Estratégico (.DOC)</span>
                 </>
               )}

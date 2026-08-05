@@ -70,7 +70,7 @@ export default function App() {
     return params.has('demo');
   });
   const [showDemoBlockModal, setShowDemoBlockModal] = useState(false);
-  const [showDocModal, setShowDocModal] = useState(false);
+  const [showDocModal, setShowDocModal] = useState(true);
   const [showSupabaseConfig, setShowSupabaseConfig] = useState(false);
 
   // Sync demoRole when demo mode starts
