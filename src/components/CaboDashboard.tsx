@@ -775,18 +775,43 @@ export default function CaboDashboard({
         }
       }
 
+      // Resolve dynamic team details if missing in local state
+      let activeTeam = teamData;
+      if (!activeTeam) {
+        try {
+          const allTeams = await firestoreService.getCollection<any>('teams');
+          const uEmail = (user.email || profileData.email || '').toLowerCase().trim();
+          const uName = (profileData.name || user.displayName || '').toLowerCase().trim();
+          activeTeam = allTeams.find(t => 
+            (t.id && profileData.teamId && t.id === profileData.teamId) ||
+            (t.leaderEmail && uEmail && t.leaderEmail.toLowerCase().trim() === uEmail) ||
+            (t.leader && uName && t.leader.toLowerCase().trim().includes(uName)) ||
+            (t.leader && uName && uName.includes(t.leader.toLowerCase().trim()))
+          ) || null;
+        } catch (e) {
+          console.warn("Aviso ao resolver equipe no salvamento do eleitor:", e);
+        }
+      }
+
+      const teamName = activeTeam?.name || profileData.zone || "Base";
+      const teamId = activeTeam?.id || profileData.teamId || '';
+      const regCoordId = activeTeam?.regionalCoordId || profileData.regionalCoordId || user?.regionalCoordId || '';
+      const regCoordEmail = activeTeam?.regionalCoordEmail || profileData.regionalCoordEmail || '';
+      const leaderName = profileData.name || activeTeam?.leader || user.displayName || "Líder";
+      const leaderEmail = user.email || profileData.email || activeTeam?.leaderEmail || '';
+
       if (isEditingVoter && editingVoterId) {
         await firestoreService.setDocument('voters', editingVoterId, {
           ...voterForm,
           leaderId: user.uid,
-          leaderName: profileData.name || teamData?.leader || user.displayName || "Líder",
-          leaderEmail: user.email || profileData.email || teamData?.leaderEmail || '',
-          team: teamData?.name || profileData.zone || "Base",
-          teamName: teamData?.name || profileData.zone || "Base",
-          teamId: teamData?.id || profileData.teamId || '',
+          leaderName: leaderName,
+          leaderEmail: leaderEmail,
+          team: teamName,
+          teamName: teamName,
+          teamId: teamId,
           coordinatorId: 'geral',
-          regionalCoordId: teamData?.regionalCoordId || profileData.regionalCoordId || user?.regionalCoordId || '',
-          regionalCoordEmail: teamData?.regionalCoordEmail || profileData.regionalCoordEmail || '',
+          regionalCoordId: regCoordId,
+          regionalCoordEmail: regCoordEmail,
           updatedAt: Date.now()
         }, true);
         await fetchServerCounts();
@@ -795,17 +820,17 @@ export default function CaboDashboard({
         const payload = {
           ...voterForm,
           leaderId: user.uid,
-          leaderName: profileData.name || teamData?.leader || user.displayName || "Líder",
-          leaderEmail: user.email || profileData.email || teamData?.leaderEmail || '',
-          team: teamData?.name || profileData.zone || "Base",
-          teamName: teamData?.name || profileData.zone || "Base",
-          teamId: teamData?.id || profileData.teamId || '',
+          leaderName: leaderName,
+          leaderEmail: leaderEmail,
+          team: teamName,
+          teamName: teamName,
+          teamId: teamId,
           createdAt: Date.now(),
           registeredBy: user.email || user.uid,
           createdBy: user.uid,
           coordinatorId: 'geral',
-          regionalCoordId: teamData?.regionalCoordId || profileData.regionalCoordId || user?.regionalCoordId || '',
-          regionalCoordEmail: teamData?.regionalCoordEmail || profileData.regionalCoordEmail || '',
+          regionalCoordId: regCoordId,
+          regionalCoordEmail: regCoordEmail,
           location: null
         };
         await firestoreService.setDocument('voters', `voter_${Date.now()}`, payload);
