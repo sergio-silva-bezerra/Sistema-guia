@@ -74,7 +74,7 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
     const email = (authUser.email || '').toLowerCase();
     const isAntonio = email.includes('antonio');
 
-    // Fetch user profile from Supabase
+    // Fetch user profile from Supabase or local users collection
     let profile: any = await firestoreService.getDocument('users', uid);
 
     // If not found by UID, search users collection by email
@@ -84,38 +84,51 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
       if (profile) {
         profile.uid = uid;
         profile.id = uid;
-        await firestoreService.setDocument('users', uid, profile, true);
       }
     }
 
-    // If still not found, search pre_registrations and regional_coordinators by email
-    if (!profile && email) {
-      const preReg: any = await firestoreService.getDocument('pre_registrations', email);
-      const allRegs = await firestoreService.getCollection<any>('regional_coordinators');
-      const regCoord = allRegs.find(r => r.email && r.email.toLowerCase() === email);
+    // ALWAYS check regional_coordinators and pre_registrations by email to ensure correct role assignment
+    const allRegs = await firestoreService.getCollection<any>('regional_coordinators');
+    const regCoord = allRegs.find(r => r.email && r.email.toLowerCase() === email);
+    const preReg: any = email ? await firestoreService.getDocument('pre_registrations', email) : null;
 
-      if (preReg || regCoord) {
-        const userRole: UserRole = preReg?.role || (regCoord ? 'coordenador_regional' : 'lider');
-        const userRegion = preReg?.region || regCoord?.region || null;
-        const parentCoordId = preReg?.coordinatorId || regCoord?.coordinatorId || uid;
-        const name = preReg?.name || regCoord?.name || authUser.user_metadata?.full_name || authUser.displayName || (userRole === 'coordenador_regional' ? 'Coordenador Regional' : 'Líder');
+    if (regCoord || (preReg && (preReg.role === 'coordenador_regional' || preReg.region))) {
+      const parentCoordId = regCoord?.coordinatorId || preReg?.coordinatorId || (profile?.coordinatorId && profile.coordinatorId !== uid ? profile.coordinatorId : uid);
+      const regRegion = regCoord?.region || preReg?.region || profile?.region || null;
+      const regName = regCoord?.name || preReg?.name || profile?.name || authUser.user_metadata?.full_name || authUser.displayName || 'Coordenador Regional';
 
-        profile = {
-          id: uid,
-          uid,
-          email,
-          role: userRole,
-          name,
-          region: userRegion,
-          coordinatorId: parentCoordId,
-          forcePasswordChange: true,
-          createdAt: Date.now()
-        };
-        await firestoreService.setDocument('users', uid, profile, true);
-      }
-    }
+      profile = {
+        ...(profile || {}),
+        id: uid,
+        uid,
+        email,
+        role: 'coordenador_regional',
+        name: regName,
+        region: regRegion,
+        coordinatorId: parentCoordId,
+        createdAt: profile?.createdAt || Date.now()
+      };
+      await firestoreService.setDocument('users', uid, profile, true);
+    } else if (preReg) {
+      const userRole: UserRole = preReg.role || 'lider';
+      const userRegion = preReg.region || profile?.region || null;
+      const parentCoordId = preReg.coordinatorId || profile?.coordinatorId || uid;
+      const name = preReg.name || profile?.name || authUser.user_metadata?.full_name || authUser.displayName || (userRole === 'coordenador_regional' ? 'Coordenador Regional' : 'Líder');
 
-    if (!profile) {
+      profile = {
+        ...(profile || {}),
+        id: uid,
+        uid,
+        email,
+        role: userRole,
+        name,
+        region: userRegion,
+        coordinatorId: parentCoordId,
+        forcePasswordChange: true,
+        createdAt: profile?.createdAt || Date.now()
+      };
+      await firestoreService.setDocument('users', uid, profile, true);
+    } else if (!profile) {
       const defaultRole: UserRole = isAntonio ? 'coordenador_regional' : 'coordenador_geral';
       profile = {
         id: uid,

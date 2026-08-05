@@ -263,14 +263,33 @@ export default function App() {
     setAuthError('');
     try {
       if (isRegistering) {
-        if (userRole === 'coordenador_geral') {
+        const lowerEmail = email.toLowerCase();
+        const preRegDoc = await firestoreService.getDocument('pre_registrations', lowerEmail) as any;
+        const allRegs = await firestoreService.getCollection<any>('regional_coordinators');
+        const regCoord = allRegs.find(r => r.email && r.email.toLowerCase() === lowerEmail);
+
+        let targetRole = userRole;
+        if (regCoord || (preRegDoc && preRegDoc.role === 'coordenador_regional')) {
+          targetRole = 'coordenador_regional';
+        } else if (preRegDoc && preRegDoc.role) {
+          targetRole = preRegDoc.role;
+        }
+
+        if (targetRole === 'coordenador_geral') {
           const validation = await validateGeneralCoordinatorRegistration();
           if (!validation.allowed) {
             triggerUpgradeRedirect(validation.reason!, true);
             return;
           }
         }
-        await signupWithEmail(email, password, userRole);
+
+        await signupWithEmail(email, password, targetRole, {
+          name: regCoord?.name || preRegDoc?.name || '',
+          phone: regCoord?.phone || preRegDoc?.phone || '',
+          region: regCoord?.region || preRegDoc?.region || '',
+          coordinatorId: regCoord?.coordinatorId || preRegDoc?.coordinatorId || '',
+          forcePasswordChange: true
+        });
       } else {
         try {
           await loginWithEmail(email, password);
