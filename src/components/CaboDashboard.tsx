@@ -272,12 +272,13 @@ export default function CaboDashboard({
           const data = users.find(u => u.id === user.uid);
           if (data) {
             const teamName = data.teamName || data.zone || data.team || '';
-            setProfileData({
-              name: data.name || user.displayName || '',
-              phone: data.phone || '',
-              photoUrl: data.photoUrl || user.photoURL || '',
-              zone: teamName
-            });
+            setProfileData((prev: any) => ({
+              ...prev,
+              name: data.name || user.displayName || prev?.name || '',
+              phone: data.phone || prev?.phone || '',
+              photoUrl: data.photoUrl || user.photoURL || prev?.photoUrl || '',
+              zone: (teamName && teamName !== 'SETOR NÃO DEFINIDO' && teamName !== 'Base') ? teamName : (teamData?.name || prev?.zone || '')
+            }));
             
             if (!subscribedMaterials) {
               subscribedMaterials = true;
@@ -290,47 +291,32 @@ export default function CaboDashboard({
               setResolvedCoordinatorId(resolvedCoordId);
             }
 
-          // If we have a teamId, fetch team details in the background
-          if (data.teamId && (!teamData || teamData.id !== data.teamId)) {
-            firestoreService.getDocument<any>('teams', data.teamId).then((teamDataRaw) => {
-              if (teamDataRaw) {
-                setTeamData({ ...teamDataRaw, id: data.teamId });
-                if (!resolvedCoordId && teamDataRaw.coordinatorId) {
-                  firestoreService.updateDocument('users', user.uid, {
-                    coordinatorId: teamDataRaw.coordinatorId
-                  }).catch(err => console.error("Error healing coordinatorId from team:", err));
-                }
-              }
-            }).catch(err => console.warn("Erro ao buscar equipe por teamId:", err));
-          }
+          // Always resolve team details if email, teamId, or leader name matches
+          firestoreService.getCollection<any>('teams').then((allTeams) => {
+            const userEmailLower = (user.email || data.email || '').toLowerCase().trim();
+            const userNameLower = (data.name || user.displayName || '').toLowerCase().trim();
+            const matchedTeam = allTeams.find(t => 
+              (t.id && data.teamId && t.id === data.teamId) ||
+              (t.leaderEmail && userEmailLower && t.leaderEmail.toLowerCase().trim() === userEmailLower) ||
+              (t.leader && userNameLower && t.leader.toLowerCase().trim().includes(userNameLower)) ||
+              (t.leader && userNameLower && userNameLower.includes(t.leader.toLowerCase().trim()))
+            );
 
-          // If still no coordinatorId and we have user email, heal in the background
-          if (!resolvedCoordId && user.email) {
-            const userEmailLower = user.email.toLowerCase();
-            firestoreService.getCollection<any>('teams').then((allTeams) => {
-              const matchedTeam = allTeams.find(t => t.leaderEmail && t.leaderEmail.toLowerCase() === userEmailLower);
-              if (matchedTeam) {
-                setTeamData(matchedTeam);
-                const foundCoordId = matchedTeam.coordinatorId || '';
-                if (foundCoordId) {
-                  firestoreService.updateDocument('users', user.uid, {
-                    teamId: matchedTeam.id,
-                    teamName: matchedTeam.name || '',
-                    coordinatorId: foundCoordId
-                  }).catch(err => console.error("Error healing profile with matching team:", err));
-                }
-              } else {
-                firestoreService.getCollection<any>('users').then((allUsers) => {
-                  const coordUser = allUsers.find(u => u.role === 'coordenador');
-                  if (coordUser) {
-                    firestoreService.updateDocument('users', user.uid, {
-                      coordinatorId: coordUser.id
-                    }).catch(err => console.error("Error healing fallback coordinatorId:", err));
-                  }
-                });
-              }
-            }).catch(err => console.warn("Erro ao buscar equipe por leaderEmail:", err));
-          }
+            if (matchedTeam) {
+              setTeamData(matchedTeam);
+              setProfileData((prev: any) => ({
+                ...prev,
+                zone: matchedTeam.name || prev?.zone || 'RUMO A VITÓRIA'
+              }));
+              firestoreService.updateDocument('users', user.uid, {
+                teamId: matchedTeam.id,
+                teamName: matchedTeam.name || '',
+                team: matchedTeam.name || '',
+                regionalCoordId: matchedTeam.regionalCoordId || '',
+                regionalCoordEmail: matchedTeam.regionalCoordEmail || ''
+              }).catch(err => console.error("Error healing profile with matching team:", err));
+            }
+          }).catch(err => console.warn("Erro ao buscar equipe por leader email/name:", err));
 
           if (resolvedCoordId) {
             setResolvedCoordinatorId(resolvedCoordId);

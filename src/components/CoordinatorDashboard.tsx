@@ -172,21 +172,21 @@ export const isVoterInTeam = (voter: any, team: any) => {
   // 2. Compare team name (normalized - exact or substring match)
   const teamName = (team.name || '').trim().toLowerCase();
   const voterTeam = (voter.team || voter.teamName || voter.zone || '').trim().toLowerCase();
-  if (teamName && voterTeam) {
+  if (teamName && voterTeam && voterTeam !== 'setor não definido' && voterTeam !== 'base') {
     if (voterTeam === teamName || voterTeam.includes(teamName) || teamName.includes(voterTeam)) return true;
   }
 
   // 3. Compare leader name (normalized - handles "Salatiel" matching "SALATIEL GONÇALVES")
   const teamLeader = (team.leader || team.leaderName || '').trim().toLowerCase();
   const voterLeader = (voter.leaderName || voter.leader || '').trim().toLowerCase();
-  if (teamLeader && voterLeader) {
+  if (teamLeader && voterLeader && voterLeader !== 'líder' && voterLeader !== 'líder de equipe') {
     if (teamLeader === voterLeader || teamLeader.includes(voterLeader) || voterLeader.includes(teamLeader)) return true;
     const teamLeaderFirstName = teamLeader.split(' ')[0];
     const voterLeaderFirstName = voterLeader.split(' ')[0];
     if (teamLeaderFirstName.length >= 3 && teamLeaderFirstName === voterLeaderFirstName) return true;
   }
 
-  // 4. Compare leader email
+  // 4. Compare leader email / registeredBy / createdBy
   const teamLeaderEmail = (team.leaderEmail || '').trim().toLowerCase();
   const voterLeaderEmail = (voter.leaderEmail || voter.registeredBy || voter.createdBy || '').trim().toLowerCase();
   if (teamLeaderEmail && voterLeaderEmail) {
@@ -195,6 +195,7 @@ export const isVoterInTeam = (voter: any, team: any) => {
 
   // 5. Compare leader ID / createdBy
   if (voter.leaderId && (voter.leaderId === team.id || voter.leaderId === team.leaderId || voter.leaderId === team.createdBy || voter.leaderId === team.leaderEmail)) return true;
+  if (voter.createdBy && (voter.createdBy === team.id || voter.createdBy === team.leaderId || voter.createdBy === team.createdBy || voter.createdBy === team.leaderEmail)) return true;
 
   return false;
 };
@@ -215,12 +216,9 @@ export default function CoordinatorDashboard({
   const [noteSubTab, setNoteSubTab] = useState<'tactical' | 'private'>('tactical');
   const [selectedLinkTeam, setSelectedLinkTeam] = useState('');
 
-  // Redirect away from Coordenador Geral / Regional restricted tabs
+  // Redirect away from Regional restricted tabs
   useEffect(() => {
     if (!isGeral && (activeTab === 'metas' || activeTab === 'regional_coords')) {
-      setActiveTab('overview');
-    }
-    if (isGeral && (activeTab === 'teams' || activeTab === 'voters')) {
       setActiveTab('overview');
     }
   }, [isGeral, activeTab]);
@@ -1747,19 +1745,14 @@ export default function CoordinatorDashboard({
     fetchTeamVoterCounts();
   }, [coordinatorId, teams, allVoters]);
 
-  // 3. Sincroniza eleitores da campanha de forma isolada
+  // 3. Sincroniza eleitores da campanha de forma isolada e contínua
   useEffect(() => {
     if (!coordinatorId) return;
-
-    const tabsThatNeedAllVoters = ['mapa', 'analise_eleitoral', 'reports', 'overview', 'teams', 'voters', 'regional_coords', 'metas'];
-    if (!tabsThatNeedAllVoters.includes(activeTab)) {
-      return;
-    }
 
     const unsubVoters = firestoreService.subscribeToCollectionFiltered<any>('voters', coordinatorId, (rawData) => {
       const uniqueMap = new Map();
       rawData.forEach((v: any) => {
-        const key = (v.phone && v.phone.length > 5) ? v.phone : v.name;
+        const key = (v.phone && v.phone.length > 5) ? v.phone : (v.name + '_' + (v.leaderName || ''));
         if (!uniqueMap.has(key)) {
           uniqueMap.set(key, v);
         } else {
@@ -1771,11 +1764,13 @@ export default function CoordinatorDashboard({
       });
       const uniqueVoters = Array.from(uniqueMap.values());
       setAllVoters(uniqueVoters);
+      setTotalVotersCount(prev => Math.max(prev, uniqueVoters.length));
+      setVotedVotersCount(prev => Math.max(prev, uniqueVoters.filter(v => v.voted).length));
       safeLocalStorage.setItem(`urna360_voters_cache_${coordinatorId}`, JSON.stringify(uniqueVoters));
     });
 
     return () => unsubVoters();
-  }, [coordinatorId, activeTab]);
+  }, [coordinatorId]);
 
   // 4. Sincronização reativa paginada para a listagem principal de eleitores da campanha
   useEffect(() => {
@@ -2335,8 +2330,8 @@ export default function CoordinatorDashboard({
             { id: 'overview', label: 'Dashboard Geral', icon: <LayoutDashboard className="w-4 h-4" /> },
             ...(isGeral ? [{ id: 'metas', label: 'Metas Eleitorais', icon: <Target className="w-4 h-4" /> }] : []),
             ...(isGeral ? [{ id: 'regional_coords', label: 'Coord. Regionais', icon: <ShieldCheck className="w-4 h-4" /> }] : []),
-            ...(!isGeral ? [{ id: 'teams', label: 'Equipes & Líderes', icon: <Users className="w-4 h-4" /> }] : []),
-            ...(!isGeral ? [{ id: 'voters', label: 'Eleitores Geral', icon: <UserPlus className="w-4 h-4" /> }] : []),
+            { id: 'teams', label: 'Equipes & Líderes', icon: <Users className="w-4 h-4" /> },
+            { id: 'voters', label: 'Eleitores Geral', icon: <UserPlus className="w-4 h-4" /> },
             { id: 'agenda', label: 'Agenda', icon: <Calendar className="w-4 h-4" /> },
             { id: 'mapa', label: 'Mapa Regional', icon: <MapIcon className="w-4 h-4" /> },
             { id: 'analise_eleitoral', label: 'Análise Eleitoral', icon: <TrendingUp className="w-4 h-4" /> },
