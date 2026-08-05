@@ -1939,10 +1939,37 @@ export default function CoordinatorDashboard({
         });
       }
 
-      setAllVoters(uniqueVoters);
-      setTotalVotersCount(prev => Math.max(prev, uniqueVoters.length));
-      setVotedVotersCount(prev => Math.max(prev, uniqueVoters.filter(v => v.voted).length));
-      safeLocalStorage.setItem(`urna360_voters_cache_${coordinatorId}`, JSON.stringify(uniqueVoters));
+      let displayVoters = uniqueVoters;
+
+      // Filter for Coordenador Regional if isRegional is true and NOT isGeral
+      if (isRegional && !isGeral) {
+        const uId = user?.uid || user?.id || '';
+        const uEmail = (user?.email || '').toLowerCase().trim();
+        const uRegion = (userRegion || profileData?.region || '').toUpperCase().trim();
+
+        displayVoters = uniqueVoters.filter((v: any) => {
+          if (uId && v.regionalCoordId && v.regionalCoordId === uId) return true;
+          if (uEmail && v.regionalCoordEmail && v.regionalCoordEmail.toLowerCase().trim() === uEmail) return true;
+
+          if (teams && teams.length > 0) {
+            const matchedTeam = teams.find(t => isVoterInTeam(v, t));
+            if (matchedTeam) {
+              const teamIsMyRegional = 
+                (uId && matchedTeam.regionalCoordId === uId) ||
+                (uEmail && matchedTeam.regionalCoordEmail && matchedTeam.regionalCoordEmail.toLowerCase().trim() === uEmail) ||
+                (uRegion && matchedTeam.region && matchedTeam.region.toUpperCase().trim() === uRegion);
+              if (teamIsMyRegional) return true;
+            }
+          }
+          if (v.coordinatorId === coordinatorId || v.coordinatorId === user?.uid || v.coordinatorId === 'geral') return true;
+          return false;
+        });
+      }
+
+      setAllVoters(displayVoters);
+      setTotalVotersCount(prev => Math.max(prev, displayVoters.length));
+      setVotedVotersCount(prev => Math.max(prev, displayVoters.filter(v => v.voted).length));
+      safeLocalStorage.setItem(`urna360_voters_cache_${coordinatorId}`, JSON.stringify(displayVoters));
     };
 
     const unsubVoters = (isGeral || isRegional)
@@ -7040,8 +7067,8 @@ export default function CoordinatorDashboard({
           { id: 'overview', label: 'Dash', icon: <LayoutDashboard className="w-4 h-4" /> },
           ...(isGeral ? [{ id: 'metas', label: 'Metas', icon: <Target className="w-4 h-4" /> }] : []),
           ...(isGeral ? [{ id: 'regional_coords', label: 'Regionais', icon: <ShieldCheck className="w-4 h-4" /> }] : []),
-          ...(!isGeral ? [{ id: 'teams', label: 'Equipes', icon: <Users className="w-4 h-4" /> }] : []),
-          ...(!isGeral ? [{ id: 'voters', label: 'Eleitores', icon: <UserPlus className="w-4 h-4" /> }] : []),
+          { id: 'teams', label: 'Equipes', icon: <Users className="w-4 h-4" /> },
+          { id: 'voters', label: 'Eleitores', icon: <UserPlus className="w-4 h-4" /> },
           { id: 'agenda', label: 'Agenda', icon: <Calendar className="w-4 h-4" /> },
           { id: 'analise_eleitoral', label: 'Análise', icon: <TrendingUp className="w-4 h-4" /> },
           { id: 'materials', label: 'Materiais', icon: <Package className="w-4 h-4" /> },

@@ -114,15 +114,21 @@ export const firestoreService = {
 
     if (client) {
       try {
-        const { error } = await client.from('campaign_records').upsert({
-          coordinator_id: coordinatorId,
-          record_type: path,
-          record_id: id,
-          payload: payload
-        }, { onConflict: 'record_type,record_id' });
+        const { data: existingRow } = await client
+          .from('campaign_records')
+          .select('id, payload')
+          .eq('record_type', path)
+          .eq('record_id', id)
+          .maybeSingle();
 
-        if (error) {
-          await client.from('campaign_records').upsert({
+        if (existingRow && existingRow.id) {
+          const finalPayload = merge ? { ...(existingRow.payload || {}), ...payload } : payload;
+          await client.from('campaign_records').update({
+            coordinator_id: coordinatorId,
+            payload: finalPayload
+          }).eq('id', existingRow.id);
+        } else {
+          await client.from('campaign_records').insert({
             coordinator_id: coordinatorId,
             record_type: path,
             record_id: id,

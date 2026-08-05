@@ -176,8 +176,14 @@ export default function EleitoralDashboard({
     });
     campaignVoters.forEach((v: any) => {
       if (v.municipio) setMuni.add(v.municipio.trim());
+      if (v.mappedMunicipio) setMuni.add(v.mappedMunicipio.trim());
     });
-    if (setMuni.size === 0) return [];
+    const DEFAULT_RR_MUNICIPALITIES = [
+      "Alto Alegre", "Amajari", "Boa Vista", "Bonfim", "Cantá", 
+      "Caracaraí", "Caroebe", "Iracema", "Mucajaí", "Normandia", 
+      "Pacaraima", "Rorainópolis", "São João da Baliza", "São Luiz", "Uiramutã"
+    ];
+    DEFAULT_RR_MUNICIPALITIES.forEach(m => setMuni.add(m));
     return Array.from(setMuni).sort((a, b) => a.localeCompare(b, 'pt-BR'));
   }, [votingLocations, campaignVoters]);
 
