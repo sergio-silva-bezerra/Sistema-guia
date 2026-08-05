@@ -133,7 +133,10 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
       const lName = (t.leader || '').toLowerCase().trim();
       return (
         (lEmail && (lEmail === cleanEmail || lEmail.split('@')[0] === emailPrefix || (urlEmail && lEmail === urlEmail))) ||
-        (lName && cleanEmail && emailPrefix.length > 3 && (lName.includes(emailPrefix) || emailPrefix.includes(lName)))
+        (lName && cleanEmail && (
+          (emailPrefix.length > 2 && (lName.includes(emailPrefix) || emailPrefix.includes(lName))) ||
+          cleanEmail.includes(lName) || lName.includes(cleanEmail)
+        ))
       );
     });
 
@@ -145,12 +148,17 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
       (profile && profile.role === 'lider')
     );
 
+    // Auto-cleanup stale regional_coordinator entry if user is a team leader
+    if (isLeaderUser && regCoord && regCoord.id && (!preReg || preReg.role !== 'coordenador_regional')) {
+      firestoreService.deleteDocument('regional_coordinators', regCoord.id).catch(() => {});
+    }
+
     // Determine regional status
     const isRegionalUser = !isSergioGeral && !isLeaderUser && (
-      !!regCoord ||
+      (regCoord && regCoord.role !== 'lider') ||
       urlRole === 'coordenador_regional' ||
       (preReg && preReg.role === 'coordenador_regional') ||
-      (profile && profile.role === 'coordenador_regional') ||
+      (profile && profile.role === 'coordenador_regional' && !teamLeaderDoc) ||
       cleanEmail.includes('antonio') ||
       cleanEmail.includes('joao')
     );

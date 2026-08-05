@@ -694,9 +694,9 @@ export default function CoordinatorDashboard({
         (rawTeams || []).forEach(t => {
           if (!t) return;
           const regEmail = (t.regionalCoordEmail || '').toLowerCase().trim();
-          const regName = t.regionalCoordName || t.regionalCoord || t.leader;
-          if (regEmail || (t.regionalCoordId && t.regionalCoordId !== 'geral')) {
-            const key = regEmail || (t.regionalCoordId ? t.regionalCoordId.toLowerCase().trim() : '');
+          const regName = t.regionalCoordName || t.regionalCoord;
+          if (regEmail || regName) {
+            const key = regEmail || (t.regionalCoordId && t.regionalCoordId !== 'geral' ? t.regionalCoordId.toLowerCase().trim() : '');
             if (key) {
               const existing = map.get(key) || {};
               const merged = {
@@ -713,14 +713,27 @@ export default function CoordinatorDashboard({
                 createdAt: existing.createdAt || Date.now()
               };
               map.set(key, merged);
-
-              // Auto-persist to regional_coordinators if missing
-              if (!existing.id) {
-                firestoreService.setDocument('regional_coordinators', merged.id, merged);
-              }
             }
           }
         });
+
+        // 5. Clean up any regional_coordinators entry that belongs exclusively to a team leader
+        const teamLeaderEmails = new Set((rawTeams || []).map(t => (t.leaderEmail || '').toLowerCase().trim()).filter(Boolean));
+        const teamLeaderNames = new Set((rawTeams || []).map(t => (t.leader || '').toLowerCase().trim()).filter(Boolean));
+
+        for (const [key, value] of Array.from(map.entries())) {
+          const vEmail = (value.email || '').toLowerCase().trim();
+          const vName = (value.name || '').toLowerCase().trim();
+          const isLeaderOnly = (teamLeaderEmails.has(vEmail) || teamLeaderNames.has(vName)) &&
+            !(rawPreRegs || []).some(p => p.role === 'coordenador_regional' && p.email?.toLowerCase().trim() === vEmail);
+
+          if (isLeaderOnly) {
+            map.delete(key);
+            if (value.id) {
+              firestoreService.deleteDocument('regional_coordinators', value.id).catch(() => {});
+            }
+          }
+        }
 
         const list = Array.from(map.values());
         setRegionalCoordinators(list);

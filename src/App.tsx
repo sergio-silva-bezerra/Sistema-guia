@@ -327,7 +327,9 @@ export default function App() {
             const tempPass = foundPre?.tempPassword || regCoord?.tempPassword;
             
             if (foundPre && tempPass === password) {
-              const assignedRole: UserRole = regCoord ? 'coordenador_regional' : (foundPre.role || 'lider');
+              const assignedRole: UserRole = (foundPre?.role === 'lider' || preRegDoc?.role === 'lider')
+                ? 'lider'
+                : (regCoord && regCoord.role !== 'lider' ? 'coordenador_regional' : (foundPre?.role || 'lider'));
               await signupWithEmail(email, password, assignedRole, {
                 name: foundPre.name || regCoord?.name || '',
                 phone: foundPre.phone || regCoord?.phone || '',
