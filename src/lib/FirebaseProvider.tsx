@@ -121,56 +121,69 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
       const pName = (p.name || '').toLowerCase().trim();
       return (
         (pEmail && (pEmail === cleanEmail || pEmail.split('@')[0] === emailPrefix || (urlEmail && pEmail === urlEmail))) ||
-        (pName && cleanEmail && (pName.includes(emailPrefix) || emailPrefix.includes(pName))) ||
-        (cleanEmail && cleanEmail.includes('joao'))
+        (pName && cleanEmail && (pName.includes(emailPrefix) || emailPrefix.includes(pName)))
       );
     }) || (cleanEmail ? await firestoreService.getDocument('pre_registrations', cleanEmail) : null);
 
+    // Search teams collection for team leader match
+    const allTeams = await firestoreService.getCollection<any>('teams');
+    const teamLeaderDoc = allTeams.find(t => {
+      if (!t) return false;
+      const lEmail = (t.leaderEmail || '').toLowerCase().trim();
+      const lName = (t.leader || '').toLowerCase().trim();
+      return (
+        (lEmail && (lEmail === cleanEmail || lEmail.split('@')[0] === emailPrefix || (urlEmail && lEmail === urlEmail))) ||
+        (lName && cleanEmail && emailPrefix.length > 3 && (lName.includes(emailPrefix) || emailPrefix.includes(lName)))
+      );
+    });
+
+    // Determine leader status first
+    const isLeaderUser = !isSergioGeral && (
+      urlRole === 'lider' ||
+      !!teamLeaderDoc ||
+      (preReg && preReg.role === 'lider') ||
+      (profile && profile.role === 'lider')
+    );
+
     // Determine regional status
-    const isRegionalUser = !isSergioGeral && (
+    const isRegionalUser = !isSergioGeral && !isLeaderUser && (
       !!regCoord ||
       urlRole === 'coordenador_regional' ||
-      (preReg && (preReg.role === 'coordenador_regional' || preReg.region)) ||
+      (preReg && preReg.role === 'coordenador_regional') ||
       (profile && profile.role === 'coordenador_regional') ||
       cleanEmail.includes('antonio') ||
       cleanEmail.includes('joao')
-    );
-
-    // Determine leader status
-    const isLeaderUser = !isSergioGeral && !isRegionalUser && (
-      urlRole === 'lider' ||
-      (preReg && preReg.role === 'lider') ||
-      (profile && profile.role === 'lider')
     );
 
     let currentRole: UserRole = 'coordenador_regional';
 
     if (isSergioGeral) {
       currentRole = 'coordenador_geral';
-    } else if (isRegionalUser) {
-      currentRole = 'coordenador_regional';
     } else if (isLeaderUser) {
       currentRole = 'lider';
+    } else if (isRegionalUser) {
+      currentRole = 'coordenador_regional';
     } else if (preReg && preReg.role) {
       currentRole = preReg.role;
     } else {
-      // Non-Sergio user ALWAYS defaults to coordenador_regional unless explicitly registered as leader
       currentRole = 'coordenador_regional';
     }
 
-    const parentCoordId = regCoord?.coordinatorId || preReg?.coordinatorId || profile?.coordinatorId || (currentRole === 'coordenador_geral' ? uid : 'geral');
-    const regRegion = regCoord?.region || preReg?.region || profile?.region || 'REGIÃO SUL';
-    const regName = regCoord?.name || preReg?.name || profile?.name || authUser.user_metadata?.full_name || authUser.displayName || (currentRole === 'coordenador_regional' ? 'JOÃO CARDOSO' : 'Coordenador Regional');
+    const parentCoordId = regCoord?.coordinatorId || preReg?.coordinatorId || profile?.coordinatorId || teamLeaderDoc?.coordinatorId || (currentRole === 'coordenador_geral' ? uid : 'geral');
+    const regRegion = regCoord?.region || preReg?.region || profile?.region || teamLeaderDoc?.location || 'REGIÃO SUL';
+    const regName = preReg?.name || teamLeaderDoc?.leader || regCoord?.name || profile?.name || authUser.user_metadata?.full_name || authUser.displayName || (currentRole === 'lider' ? 'Líder de Equipe' : 'Coordenador Regional');
 
     profile = {
       ...(profile || {}),
       id: uid,
       uid,
-      email: cleanEmail || regCoord?.email || preReg?.email,
+      email: cleanEmail || regCoord?.email || preReg?.email || teamLeaderDoc?.leaderEmail,
       role: currentRole,
       name: regName,
       region: regRegion,
       coordinatorId: parentCoordId,
+      teamId: teamLeaderDoc?.id || preReg?.teamId || profile?.teamId,
+      teamName: teamLeaderDoc?.name || preReg?.teamName || profile?.teamName,
       createdAt: profile?.createdAt || Date.now()
     };
 

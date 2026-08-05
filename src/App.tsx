@@ -177,7 +177,9 @@ export default function App() {
       setEmail(emailParam);
     }
 
-    if (roleParam === 'coordenador_regional' || (emailParam && emailParam.toLowerCase().includes('joao'))) {
+    if (roleParam === 'lider') {
+      setUserRole('lider');
+    } else if (roleParam === 'coordenador_regional' || (emailParam && emailParam.toLowerCase().includes('joao'))) {
       setUserRole('coordenador_regional');
     }
     
@@ -292,7 +294,9 @@ export default function App() {
 
       if (isRegistering) {
         let targetRole = userRole;
-        if (regCoord || (preRegDoc && (preRegDoc.role === 'coordenador_regional' || preRegDoc.region))) {
+        if (preRegDoc && preRegDoc.role === 'lider') {
+          targetRole = 'lider';
+        } else if (regCoord || (preRegDoc && preRegDoc.role === 'coordenador_regional')) {
           targetRole = 'coordenador_regional';
         } else if (preRegDoc && preRegDoc.role) {
           targetRole = preRegDoc.role;

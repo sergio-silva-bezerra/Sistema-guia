@@ -2101,9 +2101,9 @@ export default function CoordinatorDashboard({
       });
 
       if (!isEditMode) {
-        // 2. Criar pré-registro para o líder (apenas em criação)
-        await firestoreService.setDocument('pre_registrations', newTeam.leaderEmail.toLowerCase(), {
-          email: newTeam.leaderEmail.toLowerCase(),
+        const cleanLeaderEmail = newTeam.leaderEmail.toLowerCase().trim();
+        const leaderData = {
+          email: cleanLeaderEmail,
           name: newTeam.leader,
           phone: newTeam.leaderPhone,
           address: newTeam.leaderAddress,
@@ -2115,9 +2115,14 @@ export default function CoordinatorDashboard({
           coordinatorId: coordinatorId || user?.uid || 'geral',
           regionalCoordId: newTeam.regionalCoordId || (isRegional ? (user?.uid || '') : ''),
           createdAt: Date.now()
-        });
+        };
+
+        // 2. Criar pré-registro e registro de usuário para o líder
+        await firestoreService.setDocument('pre_registrations', cleanLeaderEmail, leaderData);
+        await firestoreService.setDocument('users', `user_${cleanLeaderEmail}`, leaderData);
+        await firestoreService.setDocument('users', cleanLeaderEmail, leaderData);
         
-        const accessLink = `${window.location.origin}/?email=${encodeURIComponent(newTeam.leaderEmail)}&access_token=${btoa(defaultPassword)}`;
+        const accessLink = `${window.location.origin}/?email=${encodeURIComponent(newTeam.leaderEmail)}&access_token=${btoa(defaultPassword)}&role=lider`;
         setCreatedTeamLink(accessLink);
         setTeamCreationStep('success');
       } else {
@@ -2136,7 +2141,7 @@ export default function CoordinatorDashboard({
   const handleCopyAccessLink = (team: any) => {
     const email = team.leaderEmail;
     const pass = team.tempPassword || 'urna1234'; 
-    const link = `${window.location.origin}/?email=${encodeURIComponent(email)}&access_token=${btoa(pass)}`;
+    const link = `${window.location.origin}/?email=${encodeURIComponent(email)}&access_token=${btoa(pass)}&role=lider`;
     navigator.clipboard.writeText(link);
     alert(`Link de acesso copiado para ${team.leader}!\nEnvie via WhatsApp.`);
   };
