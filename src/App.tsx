@@ -262,14 +262,34 @@ export default function App() {
     e.preventDefault();
     setAuthError('');
     try {
-      if (isRegistering) {
-        const lowerEmail = email.toLowerCase();
-        const preRegDoc = await firestoreService.getDocument('pre_registrations', lowerEmail) as any;
-        const allRegs = await firestoreService.getCollection<any>('regional_coordinators');
-        const regCoord = allRegs.find(r => r.email && r.email.toLowerCase() === lowerEmail);
+      const cleanEmail = email.toLowerCase().trim();
+      const emailPrefix = cleanEmail.split('@')[0];
 
+      const allRegs = await firestoreService.getCollection<any>('regional_coordinators');
+      const regCoord = allRegs.find(r => {
+        if (!r) return false;
+        const rEmail = (r.email || '').toLowerCase().trim();
+        const rName = (r.name || '').toLowerCase().trim();
+        return (
+          (rEmail && (rEmail === cleanEmail || rEmail.split('@')[0] === emailPrefix)) ||
+          (rName && cleanEmail && (rName.includes(emailPrefix) || emailPrefix.includes(rName)))
+        );
+      });
+
+      const allPreRegs = await firestoreService.getCollection<any>('pre_registrations');
+      const preRegDoc = allPreRegs.find(p => {
+        if (!p) return false;
+        const pEmail = (p.email || '').toLowerCase().trim();
+        const pName = (p.name || '').toLowerCase().trim();
+        return (
+          (pEmail && (pEmail === cleanEmail || pEmail.split('@')[0] === emailPrefix)) ||
+          (pName && cleanEmail && (pName.includes(emailPrefix) || emailPrefix.includes(pName)))
+        );
+      }) || (cleanEmail ? await firestoreService.getDocument('pre_registrations', cleanEmail) : null) as any;
+
+      if (isRegistering) {
         let targetRole = userRole;
-        if (regCoord || (preRegDoc && preRegDoc.role === 'coordenador_regional')) {
+        if (regCoord || (preRegDoc && (preRegDoc.role === 'coordenador_regional' || preRegDoc.region))) {
           targetRole = 'coordenador_regional';
         } else if (preRegDoc && preRegDoc.role) {
           targetRole = preRegDoc.role;
@@ -294,20 +314,21 @@ export default function App() {
         try {
           await loginWithEmail(email, password);
         } catch (err: any) {
-          // Se falhou o login padrão, verificar se é um pré-registro
+          // Se falhou o login padrão, verificar se é um pré-registro ou coordenador regional
           if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential' || (err.message && err.message.includes('INVALID_LOGIN_CREDENTIALS'))) {
-            const preRegDoc = await firestoreService.getDocument('pre_registrations', email.toLowerCase()) as any;
+            const foundPre = preRegDoc || regCoord;
+            const tempPass = foundPre?.tempPassword || regCoord?.tempPassword;
             
-            if (preRegDoc && preRegDoc.tempPassword === password) {
-              const assignedRole = preRegDoc.role || 'lider';
+            if (foundPre && tempPass === password) {
+              const assignedRole: UserRole = regCoord ? 'coordenador_regional' : (foundPre.role || 'lider');
               await signupWithEmail(email, password, assignedRole, {
-                name: preRegDoc.name || '',
-                phone: preRegDoc.phone || '',
-                address: preRegDoc.address || '',
-                region: preRegDoc.region || '',
-                teamName: preRegDoc.teamName || '',
-                teamId: preRegDoc.teamId || '',
-                coordinatorId: preRegDoc.coordinatorId || '',
+                name: foundPre.name || regCoord?.name || '',
+                phone: foundPre.phone || regCoord?.phone || '',
+                address: foundPre.address || '',
+                region: foundPre.region || regCoord?.region || '',
+                teamName: foundPre.teamName || '',
+                teamId: foundPre.teamId || '',
+                coordinatorId: foundPre.coordinatorId || regCoord?.coordinatorId || '',
                 forcePasswordChange: true
               });
             } else {

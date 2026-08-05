@@ -71,37 +71,65 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
     }
 
     const uid = authUser.id || authUser.uid;
-    const email = (authUser.email || '').toLowerCase();
-    const isAntonio = email.includes('antonio');
+    const cleanEmail = (authUser.email || '').toLowerCase().trim();
+    const emailPrefix = cleanEmail.split('@')[0];
+    const isAntonio = cleanEmail.includes('antonio');
 
     // Fetch user profile from Supabase or local users collection
     let profile: any = await firestoreService.getDocument('users', uid);
 
-    // If not found by UID, search users collection by email
-    if (!profile && email) {
+    // If not found by UID, search users collection by email or prefix
+    if (!profile && cleanEmail) {
       const allUsers = await firestoreService.getCollection<any>('users');
-      profile = allUsers.find(u => u.email && u.email.toLowerCase() === email);
+      profile = allUsers.find(u => {
+        if (!u.email) return false;
+        const uE = u.email.toLowerCase().trim();
+        return uE === cleanEmail || uE.split('@')[0] === emailPrefix;
+      });
       if (profile) {
         profile.uid = uid;
         profile.id = uid;
       }
     }
 
-    // ALWAYS check regional_coordinators and pre_registrations by email to ensure correct role assignment
+    // ALWAYS check regional_coordinators and pre_registrations with flexible matching
     const allRegs = await firestoreService.getCollection<any>('regional_coordinators');
-    const regCoord = allRegs.find(r => r.email && r.email.toLowerCase() === email);
-    const preReg: any = email ? await firestoreService.getDocument('pre_registrations', email) : null;
+    const regCoord = allRegs.find(r => {
+      if (!r) return false;
+      const rEmail = (r.email || '').toLowerCase().trim();
+      const rName = (r.name || '').toLowerCase().trim();
+      return (
+        (rEmail && (rEmail === cleanEmail || rEmail.split('@')[0] === emailPrefix)) ||
+        (rName && cleanEmail && (rName.includes(emailPrefix) || emailPrefix.includes(rName)))
+      );
+    });
 
-    if (regCoord || (preReg && (preReg.role === 'coordenador_regional' || preReg.region))) {
-      const parentCoordId = regCoord?.coordinatorId || preReg?.coordinatorId || (profile?.coordinatorId && profile.coordinatorId !== uid ? profile.coordinatorId : uid);
-      const regRegion = regCoord?.region || preReg?.region || profile?.region || null;
+    const allPreRegs = await firestoreService.getCollection<any>('pre_registrations');
+    const preReg = allPreRegs.find(p => {
+      if (!p) return false;
+      const pEmail = (p.email || '').toLowerCase().trim();
+      const pName = (p.name || '').toLowerCase().trim();
+      return (
+        (pEmail && (pEmail === cleanEmail || pEmail.split('@')[0] === emailPrefix)) ||
+        (pName && cleanEmail && (pName.includes(emailPrefix) || emailPrefix.includes(pName)))
+      );
+    }) || (cleanEmail ? await firestoreService.getDocument('pre_registrations', cleanEmail) : null);
+
+    const isRegionalUser = !!regCoord || 
+      (preReg && (preReg.role === 'coordenador_regional' || preReg.region)) || 
+      (profile && profile.role === 'coordenador_regional') || 
+      isAntonio;
+
+    if (isRegionalUser) {
+      const parentCoordId = regCoord?.coordinatorId || preReg?.coordinatorId || profile?.coordinatorId || uid;
+      const regRegion = regCoord?.region || preReg?.region || profile?.region || 'REGIÃO SUL';
       const regName = regCoord?.name || preReg?.name || profile?.name || authUser.user_metadata?.full_name || authUser.displayName || 'Coordenador Regional';
 
       profile = {
         ...(profile || {}),
         id: uid,
         uid,
-        email,
+        email: cleanEmail || regCoord?.email || preReg?.email,
         role: 'coordenador_regional',
         name: regName,
         region: regRegion,
@@ -119,7 +147,7 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
         ...(profile || {}),
         id: uid,
         uid,
-        email,
+        email: cleanEmail,
         role: userRole,
         name,
         region: userRegion,
@@ -133,7 +161,7 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
       profile = {
         id: uid,
         uid,
-        email,
+        email: cleanEmail,
         role: defaultRole,
         name: authUser.user_metadata?.full_name || authUser.displayName || (isAntonio ? 'ANTONIO FURTADO' : 'Coordenador Geral'),
         region: isAntonio ? 'REGIÃO 1 - BV' : null,
@@ -144,7 +172,9 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
     }
 
     let currentRole: UserRole = profile.role || (isAntonio ? 'coordenador_regional' : 'coordenador_geral');
-    if (isAntonio && currentRole !== 'coordenador_regional') {
+    if (isRegionalUser) {
+      currentRole = 'coordenador_regional';
+    } else if (isAntonio && currentRole !== 'coordenador_regional') {
       currentRole = 'coordenador_regional';
     }
 
@@ -156,8 +186,8 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
     setUser({
       uid,
       id: uid,
-      email,
-      displayName: profile.name || authUser.user_metadata?.full_name || authUser.displayName || email,
+      email: cleanEmail,
+      displayName: profile.name || authUser.user_metadata?.full_name || authUser.displayName || cleanEmail,
       emailVerified: true
     });
     setRole(currentRole);

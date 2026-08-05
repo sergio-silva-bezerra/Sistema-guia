@@ -623,13 +623,15 @@ export default function CoordinatorDashboard({
 
     try {
       setIsProcessing(true);
-      const coordId = `reg_${newRegCoord.email.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase()}`;
+      const cleanEmail = newRegCoord.email.toLowerCase().trim();
+      const emailPrefix = cleanEmail.split('@')[0];
+      const coordId = `reg_${cleanEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
       const tempPassword = 'nexus' + Math.floor(1000 + Math.random() * 9000);
       
       const regRecord = {
         id: coordId,
         ...newRegCoord,
-        email: newRegCoord.email.toLowerCase(),
+        email: cleanEmail,
         subLocations: newRegCoord.subLocations || '',
         targetVoters: Number(newRegCoord.targetVoters) || 500,
         tempPassword,
@@ -639,8 +641,8 @@ export default function CoordinatorDashboard({
 
       await firestoreService.setDocument('regional_coordinators', coordId, regRecord);
 
-      await firestoreService.setDocument('pre_registrations', newRegCoord.email.toLowerCase(), {
-        email: newRegCoord.email.toLowerCase(),
+      const preRegData = {
+        email: cleanEmail,
         name: newRegCoord.name,
         phone: newRegCoord.phone,
         region: newRegCoord.region,
@@ -649,7 +651,30 @@ export default function CoordinatorDashboard({
         tempPassword,
         coordinatorId: coordinatorId || user?.uid || '',
         createdAt: Date.now()
-      });
+      };
+
+      await firestoreService.setDocument('pre_registrations', cleanEmail, preRegData);
+      if (emailPrefix && emailPrefix !== cleanEmail) {
+        await firestoreService.setDocument('pre_registrations', emailPrefix, preRegData);
+      }
+
+      // Also pre-create user record in users collection so role is guaranteed
+      const userData = {
+        id: `user_${cleanEmail}`,
+        email: cleanEmail,
+        name: newRegCoord.name,
+        phone: newRegCoord.phone,
+        region: newRegCoord.region,
+        role: 'coordenador_regional',
+        coordinatorId: coordinatorId || user?.uid || '',
+        forcePasswordChange: true,
+        createdAt: Date.now()
+      };
+
+      await firestoreService.setDocument('users', `user_${cleanEmail}`, userData, true);
+      if (emailPrefix && emailPrefix !== cleanEmail) {
+        await firestoreService.setDocument('users', `user_${emailPrefix}`, { ...userData, id: `user_${emailPrefix}` }, true);
+      }
 
       setRegionalCoordinators(prev => {
         const filtered = prev.filter(r => r.id !== coordId && r.email !== newRegCoord.email.toLowerCase());
@@ -1610,16 +1635,29 @@ export default function CoordinatorDashboard({
       });
     } else if (user?.uid) {
       unsubProfile = firestoreService.subscribeToCollection<any>('users', (data) => {
-        const found = data.find(u => u.id === user.uid);
+        const uEmail = (user.email || '').toLowerCase().trim();
+        const uPrefix = uEmail.split('@')[0];
+        const found = data.find(u => {
+          if (!u) return false;
+          if (u.id === user.uid || u.uid === user.uid) return true;
+          if (!u.email) return false;
+          const uE = u.email.toLowerCase().trim();
+          return uE === uEmail || (uPrefix && uE.split('@')[0] === uPrefix);
+        });
         if (found) {
-          const userEmail = (user.email || found.email || '').toLowerCase();
-          const userName = (found.name || '').toLowerCase();
-          const isAntonio = userEmail.includes('antonio') || userName.includes('antonio');
-          if (isAntonio && found.role !== 'coordenador_regional') {
+          if (isRegional && found.role !== 'coordenador_regional') {
             found.role = 'coordenador_regional';
-            firestoreService.setDocument('users', user.uid, { ...found, role: 'coordenador_regional' }).catch(console.error);
           }
           setProfileData(found);
+        } else if (isRegional) {
+          setProfileData({
+            id: user.uid,
+            uid: user.uid,
+            email: user.email,
+            name: user.displayName || user.email?.split('@')[0] || 'Coordenador Regional',
+            role: 'coordenador_regional',
+            region: userRegion || 'REGIÃO SUL'
+          });
         }
       });
     }
