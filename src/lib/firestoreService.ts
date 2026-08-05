@@ -33,6 +33,8 @@ function setLocalList(path: string, list: any[]) {
 export const firestoreService = {
   async getCollection<T>(path: string): Promise<T[]> {
     const client = getSupabaseClient();
+    const localItems = getLocalList<any>(path);
+
     if (client) {
       try {
         const { data, error } = await client
@@ -41,18 +43,24 @@ export const firestoreService = {
           .eq('record_type', path);
 
         if (!error && data) {
-          const items = data.map(row => ({
+          const supabaseItems = data.map(row => ({
             id: row.record_id,
             ...(row.payload || {})
-          })) as T[];
-          setLocalList(path, items);
-          return items;
+          })) as any[];
+
+          const itemMap = new Map<string, any>();
+          localItems.forEach(item => { if (item && item.id) itemMap.set(item.id, item); });
+          supabaseItems.forEach(item => { if (item && item.id) itemMap.set(item.id, item); });
+
+          const allMerged = Array.from(itemMap.values());
+          setLocalList(path, allMerged);
+          return allMerged as T[];
         }
       } catch (e) {
         console.warn(`Supabase getCollection error for ${path}:`, e);
       }
     }
-    return getLocalList<T>(path);
+    return localItems as T[];
   },
 
   async getDocument<T>(path: string, id: string): Promise<T | null> {
@@ -89,7 +97,7 @@ export const firestoreService = {
   async setDocument(path: string, id: string, data: any, merge: boolean = true) {
     const client = getSupabaseClient();
     const payload = { id, ...data };
-    const coordinatorId = data.coordinatorId || data.coordinator_id || data.userId || 'default';
+    const coordinatorId = data.coordinatorId || data.coordinator_id || data.userId || 'geral';
 
     // Local storage sync
     const items = getLocalList<any>(path);
@@ -106,12 +114,21 @@ export const firestoreService = {
 
     if (client) {
       try {
-        await client.from('campaign_records').upsert({
+        const { error } = await client.from('campaign_records').upsert({
           coordinator_id: coordinatorId,
           record_type: path,
           record_id: id,
           payload: payload
         }, { onConflict: 'record_type,record_id' });
+
+        if (error) {
+          await client.from('campaign_records').upsert({
+            coordinator_id: coordinatorId,
+            record_type: path,
+            record_id: id,
+            payload: payload
+          });
+        }
       } catch (e) {
         console.warn(`Supabase setDocument error for ${path}/${id}:`, e);
       }
@@ -204,27 +221,61 @@ export const firestoreService = {
 
   async getCollectionFiltered<T>(path: string, coordinatorId: string): Promise<T[]> {
     const client = getSupabaseClient();
+    const localItems = getLocalList<any>(path);
+
     if (client) {
       try {
         const { data, error } = await client
           .from('campaign_records')
-          .select('record_id, payload')
-          .eq('record_type', path)
-          .or(`coordinator_id.eq.${coordinatorId},payload->>coordinatorId.eq.${coordinatorId}`);
+          .select('record_id, payload, coordinator_id')
+          .eq('record_type', path);
 
         if (!error && data) {
-          const items = data.map(row => ({
+          const supabaseItems = data.map(row => ({
             id: row.record_id,
+            coordinator_id: row.coordinator_id,
             ...(row.payload || {})
-          })) as T[];
-          return items;
+          })) as any[];
+
+          const itemMap = new Map<string, any>();
+          localItems.forEach(item => { if (item && item.id) itemMap.set(item.id, item); });
+          supabaseItems.forEach(item => { if (item && item.id) itemMap.set(item.id, item); });
+
+          const allMerged = Array.from(itemMap.values());
+          setLocalList(path, allMerged);
+
+          if (!coordinatorId || coordinatorId === 'all') return allMerged as T[];
+
+          return allMerged.filter(item => {
+            if (!item) return false;
+            const itemCoord = item.coordinatorId || item.coordinator_id;
+            const itemReg = item.regionalCoordId;
+            return (
+              itemCoord === coordinatorId ||
+              itemCoord === 'geral' ||
+              itemReg === coordinatorId ||
+              item.coordinatorId === 'geral' ||
+              !itemCoord
+            );
+          }) as T[];
         }
       } catch (e) {
         console.warn(`Supabase getCollectionFiltered error for ${path}:`, e);
       }
     }
 
-    const all = getLocalList<any>(path);
-    return all.filter(item => item.coordinatorId === coordinatorId || item.coordinator_id === coordinatorId) as T[];
+    if (!coordinatorId || coordinatorId === 'all') return localItems as T[];
+    return localItems.filter(item => {
+      if (!item) return false;
+      const itemCoord = item.coordinatorId || item.coordinator_id;
+      const itemReg = item.regionalCoordId;
+      return (
+        itemCoord === coordinatorId ||
+        itemCoord === 'geral' ||
+        itemReg === coordinatorId ||
+        item.coordinatorId === 'geral' ||
+        !itemCoord
+      );
+    }) as T[];
   }
 };

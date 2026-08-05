@@ -2070,19 +2070,34 @@ export default function CoordinatorDashboard({
       const teamId = editingTeamId || newTeam.name.replace(/\s/g, '_').toLowerCase();
       const defaultPassword = 'urna' + Math.floor(1000 + Math.random() * 9000);
       
-      // 1. Criar/Atualizar a equipe no Firestore
-      await firestoreService.setDocument('teams', teamId, {
+      const teamRecord = {
         ...newTeam,
+        id: teamId,
         allocated: Number(newTeam.allocated) || 0,
         spent: Number(newTeam.spent) || 0,
         contacts: Number(newTeam.contacts) || 0,
         demands: Number(newTeam.demands) || 0,
         fuel: Number(newTeam.fuel) || 0,
         tempPassword: isEditMode ? ((newTeam as any).tempPassword || defaultPassword) : defaultPassword, // Manter ou criar senha
-        coordinatorId: coordinatorId || user?.uid || '',
+        coordinatorId: coordinatorId || user?.uid || 'geral',
         regionalCoordId: newTeam.regionalCoordId || (isRegional ? (user?.uid || '') : ''),
+        regionalCoordEmail: user?.email || '',
         updatedAt: Date.now(),
         createdAt: isEditMode ? ((newTeam as any).createdAt || Date.now()) : Date.now()
+      };
+
+      // 1. Criar/Atualizar a equipe no Firestore
+      await firestoreService.setDocument('teams', teamId, teamRecord);
+
+      // Sincroniza o estado local imediatamente para a equipe aparecer no painel sem atrasos
+      setTeams(prev => {
+        const idx = prev.findIndex(t => t.id === teamId || (t.name && t.name.toLowerCase() === newTeam.name.toLowerCase()));
+        if (idx >= 0) {
+          const updated = [...prev];
+          updated[idx] = { ...updated[idx], ...teamRecord };
+          return updated;
+        }
+        return [teamRecord, ...prev];
       });
 
       if (!isEditMode) {
@@ -2097,7 +2112,7 @@ export default function CoordinatorDashboard({
           location: newTeam.location,
           tempPassword: defaultPassword,
           role: 'lider',
-          coordinatorId: coordinatorId || user?.uid || '',
+          coordinatorId: coordinatorId || user?.uid || 'geral',
           regionalCoordId: newTeam.regionalCoordId || (isRegional ? (user?.uid || '') : ''),
           createdAt: Date.now()
         });
@@ -3345,9 +3360,35 @@ export default function CoordinatorDashboard({
                       </div>
                     </motion.div>
                   )) : (
-                    <div className="p-20 text-center bg-white rounded-sm border-2 border-dashed border-zinc-200">
-                       <RefreshCcw className="w-10 h-10 text-zinc-200 animate-spin mx-auto mb-4" />
-                       <p className="font-black text-zinc-300 uppercase tracking-[0.2em] text-[9px]">Sincronizando unidades...</p>
+                    <div className="p-12 text-center bg-[var(--bg-secondary)] rounded-md border border-[var(--border-color)] space-y-3">
+                       <Users className="w-10 h-10 text-zinc-400 mx-auto opacity-50" />
+                       <p className="font-bold text-[var(--text-primary)] text-sm uppercase">Nenhuma unidade (equipe) cadastrada ainda</p>
+                       <p className="text-xs text-[var(--text-secondary)]">Clique no botão abaixo para cadastrar a primeira unidade da sua região.</p>
+                       <button
+                         onClick={() => {
+                           setIsTeamModalOpen(true);
+                           setIsEditMode(false);
+                           setEditingTeamId(null);
+                           setNewTeam({
+                             name: '',
+                             leader: '',
+                             leaderEmail: '',
+                             leaderPhone: '',
+                             leaderAddress: '',
+                             location: '',
+                             observations: '',
+                             status: 'OK',
+                             contacts: 0,
+                             fuel: 0,
+                             demands: 0,
+                             allocated: 0,
+                             spent: 0
+                           });
+                         }}
+                         className="mt-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-md font-semibold text-xs uppercase inline-flex items-center gap-2"
+                       >
+                         <Plus className="w-4 h-4" /> Cadastrar Nova Unidade
+                       </button>
                     </div>
                   )}
                 </div>
