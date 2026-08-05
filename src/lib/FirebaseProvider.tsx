@@ -214,7 +214,7 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
     setIsAdmin(adminCheck);
     setUserRegion(profile.region || (regionalCheck ? 'REGIÃO SUL' : null));
     setForcePasswordChange(!!profile.forcePasswordChange);
-    setCoordinatorId(geralCheck ? uid : parentCoordId);
+    setCoordinatorId(geralCheck ? 'geral' : (parentCoordId || 'geral'));
     setLoading(false);
   };
 

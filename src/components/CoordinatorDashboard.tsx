@@ -1763,6 +1763,30 @@ export default function CoordinatorDashboard({
         }
       });
       const uniqueVoters = Array.from(uniqueMap.values());
+
+      // Auto-heal: associa eleitores com a equipe correta caso estejam como "SETOR NÃO DEFINIDO" ou "Base"
+      if (teams && teams.length > 0) {
+        uniqueVoters.forEach((v: any) => {
+          if (!v.team || v.team === 'SETOR NÃO DEFINIDO' || v.team === 'Base' || !v.teamId) {
+            const matchedTeam = teams.find(t => isVoterInTeam(v, t));
+            if (matchedTeam) {
+              v.team = matchedTeam.name;
+              v.teamName = matchedTeam.name;
+              v.teamId = matchedTeam.id;
+              if (matchedTeam.regionalCoordId) v.regionalCoordId = matchedTeam.regionalCoordId;
+              if (matchedTeam.regionalCoordEmail) v.regionalCoordEmail = matchedTeam.regionalCoordEmail;
+              firestoreService.updateDocument('voters', v.id, {
+                team: matchedTeam.name,
+                teamName: matchedTeam.name,
+                teamId: matchedTeam.id,
+                regionalCoordId: matchedTeam.regionalCoordId || '',
+                regionalCoordEmail: matchedTeam.regionalCoordEmail || ''
+              }).catch(e => console.warn("Erro ao auto-vincular eleitor à equipe:", e));
+            }
+          }
+        });
+      }
+
       setAllVoters(uniqueVoters);
       setTotalVotersCount(prev => Math.max(prev, uniqueVoters.length));
       setVotedVotersCount(prev => Math.max(prev, uniqueVoters.filter(v => v.voted).length));
@@ -1770,7 +1794,7 @@ export default function CoordinatorDashboard({
     });
 
     return () => unsubVoters();
-  }, [coordinatorId]);
+  }, [coordinatorId, teams]);
 
   // 4. Sincronização reativa paginada para a listagem principal de eleitores da campanha
   useEffect(() => {
