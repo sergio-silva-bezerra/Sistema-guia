@@ -626,7 +626,8 @@ export default function CoordinatorDashboard({
       const coordId = `reg_${newRegCoord.email.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase()}`;
       const tempPassword = 'nexus' + Math.floor(1000 + Math.random() * 9000);
       
-      await firestoreService.setDocument('regional_coordinators', coordId, {
+      const regRecord = {
+        id: coordId,
         ...newRegCoord,
         email: newRegCoord.email.toLowerCase(),
         subLocations: newRegCoord.subLocations || '',
@@ -634,7 +635,9 @@ export default function CoordinatorDashboard({
         tempPassword,
         coordinatorId: coordinatorId || user?.uid || '',
         createdAt: Date.now()
-      });
+      };
+
+      await firestoreService.setDocument('regional_coordinators', coordId, regRecord);
 
       await firestoreService.setDocument('pre_registrations', newRegCoord.email.toLowerCase(), {
         email: newRegCoord.email.toLowerCase(),
@@ -646,6 +649,11 @@ export default function CoordinatorDashboard({
         tempPassword,
         coordinatorId: coordinatorId || user?.uid || '',
         createdAt: Date.now()
+      });
+
+      setRegionalCoordinators(prev => {
+        const filtered = prev.filter(r => r.id !== coordId && r.email !== newRegCoord.email.toLowerCase());
+        return [regRecord, ...filtered];
       });
 
       const accessLink = `${window.location.origin}/?email=${encodeURIComponent(newRegCoord.email)}&access_token=${btoa(tempPassword)}&role=coordenador_regional`;
@@ -665,6 +673,7 @@ export default function CoordinatorDashboard({
         if (email) {
           await firestoreService.deleteDocument('pre_registrations', email.toLowerCase());
         }
+        setRegionalCoordinators(prev => prev.filter(r => r.id !== id && r.email !== email));
         alert("Coordenador Regional removido!");
       } catch (err: any) {
         alert("Erro ao remover: " + err.message);
@@ -738,11 +747,12 @@ export default function CoordinatorDashboard({
     if (!editingRegCoord || !editingRegCoord.name || !editingRegCoord.email) return;
     try {
       setIsProcessing(true);
-      await firestoreService.setDocument('regional_coordinators', editingRegCoord.id, {
+      const updatedRecord = {
         ...editingRegCoord,
         targetVoters: Number(editingRegCoord.targetVoters) || 0,
         updatedAt: Date.now()
-      });
+      };
+      await firestoreService.setDocument('regional_coordinators', editingRegCoord.id, updatedRecord);
       if (editingRegCoord.email) {
         await firestoreService.setDocument('pre_registrations', editingRegCoord.email.toLowerCase(), {
           email: editingRegCoord.email.toLowerCase(),
@@ -754,6 +764,7 @@ export default function CoordinatorDashboard({
           updatedAt: Date.now()
         });
       }
+      setRegionalCoordinators(prev => prev.map(r => r.id === editingRegCoord.id ? updatedRecord : r));
       setIsEditRegCoordModalOpen(false);
       setEditingRegCoord(null);
       alert("Coordenador Regional e meta atualizados com sucesso!");

@@ -77,6 +77,44 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
     // Fetch user profile from Supabase
     let profile: any = await firestoreService.getDocument('users', uid);
 
+    // If not found by UID, search users collection by email
+    if (!profile && email) {
+      const allUsers = await firestoreService.getCollection<any>('users');
+      profile = allUsers.find(u => u.email && u.email.toLowerCase() === email);
+      if (profile) {
+        profile.uid = uid;
+        profile.id = uid;
+        await firestoreService.setDocument('users', uid, profile, true);
+      }
+    }
+
+    // If still not found, search pre_registrations and regional_coordinators by email
+    if (!profile && email) {
+      const preReg: any = await firestoreService.getDocument('pre_registrations', email);
+      const allRegs = await firestoreService.getCollection<any>('regional_coordinators');
+      const regCoord = allRegs.find(r => r.email && r.email.toLowerCase() === email);
+
+      if (preReg || regCoord) {
+        const userRole: UserRole = preReg?.role || (regCoord ? 'coordenador_regional' : 'lider');
+        const userRegion = preReg?.region || regCoord?.region || null;
+        const parentCoordId = preReg?.coordinatorId || regCoord?.coordinatorId || uid;
+        const name = preReg?.name || regCoord?.name || authUser.user_metadata?.full_name || authUser.displayName || (userRole === 'coordenador_regional' ? 'Coordenador Regional' : 'Líder');
+
+        profile = {
+          id: uid,
+          uid,
+          email,
+          role: userRole,
+          name,
+          region: userRegion,
+          coordinatorId: parentCoordId,
+          forcePasswordChange: true,
+          createdAt: Date.now()
+        };
+        await firestoreService.setDocument('users', uid, profile, true);
+      }
+    }
+
     if (!profile) {
       const defaultRole: UserRole = isAntonio ? 'coordenador_regional' : 'coordenador_geral';
       profile = {
@@ -116,7 +154,7 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
     setIsAdmin(adminCheck);
     setUserRegion(profile.region || (isAntonio ? 'REGIÃO 1 - BV' : null));
     setForcePasswordChange(!!profile.forcePasswordChange);
-    setCoordinatorId(adminCheck ? uid : (profile.coordinatorId || uid));
+    setCoordinatorId(geralCheck ? uid : (profile.coordinatorId || uid));
     setLoading(false);
   };
 
