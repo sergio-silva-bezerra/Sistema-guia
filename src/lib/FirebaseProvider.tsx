@@ -109,8 +109,7 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
       const rName = (r.name || '').toLowerCase().trim();
       return (
         (rEmail && (rEmail === cleanEmail || rEmail.split('@')[0] === emailPrefix || (urlEmail && rEmail === urlEmail))) ||
-        (rName && cleanEmail && (rName.includes(emailPrefix) || emailPrefix.includes(rName))) ||
-        (cleanEmail && cleanEmail.includes('joao'))
+        (rName && cleanEmail && emailPrefix.length >= 3 && (rName.includes(emailPrefix) || emailPrefix.includes(rName)))
       );
     });
 
@@ -158,9 +157,7 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
       (regCoord && regCoord.role !== 'lider') ||
       urlRole === 'coordenador_regional' ||
       (preReg && preReg.role === 'coordenador_regional') ||
-      (profile && profile.role === 'coordenador_regional' && !teamLeaderDoc) ||
-      cleanEmail.includes('antonio') ||
-      cleanEmail.includes('joao')
+      (profile && profile.role === 'coordenador_regional' && !teamLeaderDoc)
     );
 
     let currentRole: UserRole = 'coordenador_regional';

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import logoImg from '../assets/logo.png';
 import { TreLocationFields } from './TreLocationFields';
 import { WhatsAppDispatchModal } from './WhatsAppDispatchModal';
@@ -624,45 +624,179 @@ export default function CoordinatorDashboard({
   const [voterFilterReferredBy, setVoterFilterReferredBy] = useState('');
   const [articulatorFilter, setArticulatorFilter] = useState('');
 
-  // --- FILTER TEAMS FOR REGIONAL COORDINATOR ---
+  // --- FILTER TEAMS FOR ANY LOGGED-IN USER ---
   const displayTeams = useMemo(() => {
-    if (isGeral || (!isRegional && !isLeader)) {
+    if (isGeral || profileData?.role === 'coordenador_geral') {
       return teams;
     }
 
-    const uId = user?.uid || user?.id || '';
+    const uId = String(user?.uid || user?.id || profileData?.id || '').trim();
     const uEmail = (user?.email || profileData?.email || '').toLowerCase().trim();
-    const uEmailPrefix = uEmail.split('@')[0];
+    const uEmailPrefix = uEmail ? uEmail.split('@')[0] : '';
     const uRegion = (userRegion || profileData?.region || '').toUpperCase().trim();
-    const uName = (user?.displayName || profileData?.name || user?.email || '').toLowerCase().trim();
+    const uNameNorm = normalizeStr(user?.displayName || profileData?.name || uEmailPrefix);
 
-    const isSilvano = uName.includes('silvano') || uEmail.includes('silvano');
-    const isAntonio = uEmail.includes('antonio') || 
-                      (profileData?.name && profileData.name.toLowerCase().includes('antonio')) || 
-                      (profileData?.email && profileData.email.toLowerCase().includes('antonio'));
+    if (isRegional || profileData?.role === 'coordenador_regional') {
+      const myRegCoords = regionalCoordinators.filter(rc => {
+        if (!rc) return false;
+        const rcId = String(rc.id || '').trim();
+        const rcEmail = (rc.email || '').toLowerCase().trim();
+        const rcNameNorm = normalizeStr(rc.name || '');
+        if (uId && rcId && (rcId === uId || rcId.includes(uId) || uId.includes(rcId))) return true;
+        if (uEmail && rcEmail && (rcEmail === uEmail || (uEmailPrefix && rcEmail.startsWith(uEmailPrefix)))) return true;
+        if (uNameNorm && rcNameNorm && (rcNameNorm.includes(uNameNorm) || uNameNorm.includes(rcNameNorm))) return true;
+        return false;
+      });
 
-    return teams.filter(t => {
-      if (!t) return false;
+      const myRegIds = new Set(myRegCoords.map(rc => String(rc.id)));
+      const myRegEmails = new Set(myRegCoords.map(rc => (rc.email || '').toLowerCase().trim()).filter(Boolean));
+      const myRegRegions = new Set(myRegCoords.map(rc => (rc.region || '').toUpperCase().trim()).filter(Boolean));
+      if (uRegion) myRegRegions.add(uRegion);
 
-      // 1. Check regionalCoordId
-      const tRegId = String(t.regionalCoordId || '');
-      if (uId && tRegId && (tRegId === String(uId) || tRegId === String(profileData?.id))) return true;
-      if (tRegId === 'reg_antonio_norte' && isAntonio) return true;
-      if ((tRegId === 'reg_joao_sul' || tRegId === 'reg_silvano_sul') && isSilvano) return true;
+      const myMunicipalities: string[] = [];
+      myRegCoords.forEach(rc => {
+        const subs = rc.subLocations || rc.municipalities || rc.locations;
+        if (typeof subs === 'string') {
+          subs.split(',').forEach(s => myMunicipalities.push(s.trim().toLowerCase()));
+        } else if (Array.isArray(subs)) {
+          subs.forEach(s => myMunicipalities.push(String(s).trim().toLowerCase()));
+        }
+      });
 
-      // 2. Check regionalCoordEmail
-      const tRegEmail = (t.regionalCoordEmail || '').toLowerCase().trim();
-      if (uEmail && tRegEmail && (tRegEmail === uEmail || tRegEmail.split('@')[0] === uEmailPrefix)) return true;
-      if (isAntonio && (tRegEmail.includes('antonio') || t.name.toLowerCase().includes('pintolândia') || t.name.toLowerCase().includes('centro') || t.name.toLowerCase().includes('pacaraima'))) return true;
-      if (isSilvano && (tRegEmail.includes('silvano') || t.id === 'equipe_caracarai' || t.id === 'equipe_rorainopolis' || t.name.toLowerCase().includes('caracaraí') || t.name.toLowerCase().includes('rorainópolis'))) return true;
+      return teams.filter(t => {
+        if (!t) return false;
+        const tRegId = String(t.regionalCoordId || '').trim();
+        const tRegEmail = (t.regionalCoordEmail || '').toLowerCase().trim();
+        const tRegNameNorm = normalizeStr(t.regionalCoordName || '');
+        const tRegion = (t.region || '').toUpperCase().trim();
+        const tNameNorm = normalizeStr(t.name || '');
 
-      // 3. Check region
-      const tRegion = (t.region || '').toUpperCase().trim();
-      if (uRegion && tRegion && (tRegion === uRegion || tRegion.includes(uRegion) || uRegion.includes(tRegion))) return true;
+        if (uId && tRegId && (tRegId === uId || myRegIds.has(tRegId) || tRegId === String(profileData?.id))) return true;
 
-      return false;
-    });
-  }, [teams, isGeral, isRegional, isLeader, user, userRegion, profileData]);
+        if (uEmail && tRegEmail) {
+          if (tRegEmail === uEmail || myRegEmails.has(tRegEmail)) return true;
+          if (uEmailPrefix && tRegEmail.split('@')[0] === uEmailPrefix) return true;
+        }
+
+        if (uNameNorm && tRegNameNorm && uNameNorm.length >= 3) {
+          if (tRegNameNorm.includes(uNameNorm) || uNameNorm.includes(tRegNameNorm)) return true;
+        }
+
+        if (tRegion && (myRegRegions.has(tRegion) || (uRegion && (tRegion.includes(uRegion) || uRegion.includes(tRegion))))) return true;
+
+        if (myMunicipalities.length > 0 && tNameNorm) {
+          if (myMunicipalities.some(m => m && m.length >= 3 && tNameNorm.includes(normalizeStr(m)))) return true;
+        }
+
+        if (allVoters && allVoters.length > 0) {
+          const hasMyVoterInTeam = allVoters.some(v => {
+            const vRegId = String(v.regionalCoordId || '');
+            const vRegEmail = (v.regionalCoordEmail || '').toLowerCase().trim();
+            const isMyVoter = (uId && (vRegId === uId || v.createdBy === uId)) || (uEmail && vRegEmail === uEmail);
+            return isMyVoter && isVoterInTeam(v, t);
+          });
+          if (hasMyVoterInTeam) return true;
+        }
+
+        return false;
+      });
+    }
+
+    if (isLeader || profileData?.role === 'lider') {
+      return teams.filter(t => {
+        if (!t) return false;
+        const tLeaderId = String(t.leaderId || t.id || '').trim();
+        const tLeaderEmail = (t.leaderEmail || '').toLowerCase().trim();
+        const tLeaderNameNorm = normalizeStr(t.leaderName || t.leader || '');
+        if (uId && tLeaderId && tLeaderId === uId) return true;
+        if (uEmail && tLeaderEmail && (tLeaderEmail === uEmail || tLeaderEmail.split('@')[0] === uEmailPrefix)) return true;
+        if (uNameNorm && tLeaderNameNorm && (tLeaderNameNorm.includes(uNameNorm) || uNameNorm.includes(tLeaderNameNorm))) return true;
+        if (profileData?.teamId && (t.id === profileData.teamId || t.name === profileData.teamId)) return true;
+        return false;
+      });
+    }
+
+    return teams;
+  }, [teams, isGeral, isRegional, isLeader, user, userRegion, profileData, regionalCoordinators, allVoters]);
+
+  // --- GENERIC VOTER FILTER FOR CURRENT LOGGED IN USER ---
+  const filterVotersForUser = useCallback((rawVotersList: any[], currentDisplayTeams: any[]) => {
+    if (!rawVotersList || rawVotersList.length === 0) return [];
+
+    if (isGeral || profileData?.role === 'coordenador_geral') {
+      return rawVotersList;
+    }
+
+    const uId = String(user?.uid || user?.id || profileData?.id || '').trim();
+    const uEmail = (user?.email || profileData?.email || '').toLowerCase().trim();
+    const uEmailPrefix = uEmail ? uEmail.split('@')[0] : '';
+    const uRegion = (userRegion || profileData?.region || '').toUpperCase().trim();
+    const uNameNorm = normalizeStr(user?.displayName || profileData?.name || uEmailPrefix);
+
+    if (isRegional || profileData?.role === 'coordenador_regional') {
+      const myRegCoords = regionalCoordinators.filter(rc => {
+        if (!rc) return false;
+        const rcId = String(rc.id || '').trim();
+        const rcEmail = (rc.email || '').toLowerCase().trim();
+        const rcNameNorm = normalizeStr(rc.name || '');
+        if (uId && rcId && (rcId === uId || rcId.includes(uId) || uId.includes(rcId))) return true;
+        if (uEmail && rcEmail && (rcEmail === uEmail || (uEmailPrefix && rcEmail.startsWith(uEmailPrefix)))) return true;
+        if (uNameNorm && rcNameNorm && (rcNameNorm.includes(uNameNorm) || uNameNorm.includes(rcNameNorm))) return true;
+        return false;
+      });
+
+      const myRegIds = new Set(myRegCoords.map(rc => String(rc.id)));
+      const myRegEmails = new Set(myRegCoords.map(rc => (rc.email || '').toLowerCase().trim()).filter(Boolean));
+
+      return rawVotersList.filter((v: any) => {
+        if (!v) return false;
+        const vRegId = String(v.regionalCoordId || '').trim();
+        const vRegEmail = (v.regionalCoordEmail || '').toLowerCase().trim();
+
+        if (uId && vRegId && (vRegId === uId || myRegIds.has(vRegId) || vRegId === String(profileData?.id))) return true;
+
+        if (uEmail && vRegEmail) {
+          if (vRegEmail === uEmail || myRegEmails.has(vRegEmail)) return true;
+          if (uEmailPrefix && vRegEmail.split('@')[0] === uEmailPrefix) return true;
+        }
+
+        if (currentDisplayTeams && currentDisplayTeams.length > 0) {
+          const matchedTeam = currentDisplayTeams.find(t =>
+            (v.teamId && (v.teamId === t.id || v.teamId === t.name)) ||
+            (v.team && (v.team === t.name || v.team === t.id)) ||
+            (v.teamName && (v.teamName === t.name || v.teamName === t.id)) ||
+            isVoterInTeam(v, t)
+          );
+          if (matchedTeam) return true;
+        }
+
+        const vRegion = (v.region || '').toUpperCase().trim();
+        if (uRegion && vRegion && (vRegion === uRegion || vRegion.includes(uRegion) || uRegion.includes(vRegion))) return true;
+
+        if ((v.createdBy && uId && String(v.createdBy) === uId) || (v.registeredBy && uEmail && v.registeredBy.toLowerCase().trim() === uEmail)) return true;
+
+        return false;
+      });
+    }
+
+    if (isLeader || profileData?.role === 'lider') {
+      return rawVotersList.filter((v: any) => {
+        if (!v) return false;
+        if (currentDisplayTeams && currentDisplayTeams.length > 0) {
+          const matchedTeam = currentDisplayTeams.find(t => isVoterInTeam(v, t));
+          if (matchedTeam) return true;
+        }
+        const vLeaderId = String(v.leaderId || '');
+        const vLeaderEmail = (v.leaderEmail || '').toLowerCase().trim();
+        if (uId && vLeaderId && vLeaderId === uId) return true;
+        if (uEmail && vLeaderEmail && vLeaderEmail === uEmail) return true;
+        if ((v.createdBy && uId && String(v.createdBy) === uId) || (v.registeredBy && uEmail && v.registeredBy.toLowerCase().trim() === uEmail)) return true;
+        return false;
+      });
+    }
+
+    return rawVotersList;
+  }, [isGeral, isRegional, isLeader, user, userRegion, profileData, regionalCoordinators]);
 
   // Subscrições para Coordenadores Regionais e Metas com Auto-Healing e Sincronização Unificada
   useEffect(() => {
@@ -1903,41 +2037,7 @@ export default function CoordinatorDashboard({
     if (!coordinatorId) return;
     try {
       const voters = await firestoreService.getCollectionFiltered<any>('voters', coordinatorId);
-      let scopedVoters = voters;
-      if (isRegional && !isGeral) {
-        const uId = user?.uid || user?.id || '';
-        const uEmail = (user?.email || profileData?.email || '').toLowerCase().trim();
-        const uRegion = (userRegion || profileData?.region || '').toUpperCase().trim();
-
-        scopedVoters = voters.filter((v: any) => {
-          if (uId && v.regionalCoordId && String(v.regionalCoordId) === String(uId)) return true;
-          if (uEmail && v.regionalCoordEmail && v.regionalCoordEmail.toLowerCase().trim() === uEmail) return true;
-
-          const voterRegion = (v.region || '').toUpperCase().trim();
-          if (uRegion && voterRegion && (voterRegion === uRegion || voterRegion.includes(uRegion) || uRegion.includes(voterRegion))) return true;
-
-          if (displayTeams && displayTeams.length > 0) {
-            const matchedTeam = displayTeams.find(t => 
-              (v.teamId && (v.teamId === t.id || v.teamId === t.name)) ||
-              (v.team && (v.team === t.name || v.team === t.id)) ||
-              (v.teamName && (v.teamName === t.name || v.teamName === t.id)) ||
-              isVoterInTeam(v, t)
-            );
-            if (matchedTeam) return true;
-          } else if (teams && teams.length > 0) {
-            const matchedTeam = teams.find(t => isVoterInTeam(v, t));
-            if (matchedTeam) {
-              const teamIsMyRegional = 
-                (uId && String(matchedTeam.regionalCoordId) === String(uId)) ||
-                (uEmail && matchedTeam.regionalCoordEmail && matchedTeam.regionalCoordEmail.toLowerCase().trim() === uEmail) ||
-                (uRegion && matchedTeam.region && matchedTeam.region.toUpperCase().trim() === uRegion);
-              if (teamIsMyRegional) return true;
-            }
-          }
-          if (!v.regionalCoordId && !v.teamId && (v.coordinatorId === uId || v.createdBy === uId)) return true;
-          return false;
-        });
-      }
+      const scopedVoters = filterVotersForUser(voters, displayTeams);
       setTotalVotersCount(scopedVoters.length);
       setVotedVotersCount(scopedVoters.filter(v => v.voted).length);
     } catch (err) {
@@ -1952,7 +2052,7 @@ export default function CoordinatorDashboard({
     }
   }, [coordinatorId, activeTab]);
 
-// 2. Busca as contagens de eleitores por equipe em paralelo para esta campanha
+  // 2. Busca as contagens de eleitores por equipe em paralelo para esta campanha
   useEffect(() => {
     if (!coordinatorId || teams.length === 0) return;
 
@@ -2016,43 +2116,7 @@ export default function CoordinatorDashboard({
         });
       }
 
-      let displayVoters = uniqueVoters;
-
-      // Filter for Coordenador Regional if isRegional is true and NOT isGeral
-      if (isRegional && !isGeral) {
-        const uId = user?.uid || user?.id || '';
-        const uEmail = (user?.email || '').toLowerCase().trim();
-        const uRegion = (userRegion || profileData?.region || '').toUpperCase().trim();
-
-        displayVoters = uniqueVoters.filter((v: any) => {
-          if (uId && v.regionalCoordId && String(v.regionalCoordId) === String(uId)) return true;
-          if (uEmail && v.regionalCoordEmail && v.regionalCoordEmail.toLowerCase().trim() === uEmail) return true;
-
-          const voterRegion = (v.region || '').toUpperCase().trim();
-          if (uRegion && voterRegion && (voterRegion === uRegion || voterRegion.includes(uRegion) || uRegion.includes(voterRegion))) return true;
-
-          if (displayTeams && displayTeams.length > 0) {
-            const matchedTeam = displayTeams.find(t => 
-              (v.teamId && (v.teamId === t.id || v.teamId === t.name)) ||
-              (v.team && (v.team === t.name || v.team === t.id)) ||
-              (v.teamName && (v.teamName === t.name || v.teamName === t.id)) ||
-              isVoterInTeam(v, t)
-            );
-            if (matchedTeam) return true;
-          } else if (teams && teams.length > 0) {
-            const matchedTeam = teams.find(t => isVoterInTeam(v, t));
-            if (matchedTeam) {
-              const teamIsMyRegional = 
-                (uId && String(matchedTeam.regionalCoordId) === String(uId)) ||
-                (uEmail && matchedTeam.regionalCoordEmail && matchedTeam.regionalCoordEmail.toLowerCase().trim() === uEmail) ||
-                (uRegion && matchedTeam.region && matchedTeam.region.toUpperCase().trim() === uRegion);
-              if (teamIsMyRegional) return true;
-            }
-          }
-          if (!v.regionalCoordId && !v.teamId && (v.coordinatorId === uId || v.createdBy === uId)) return true;
-          return false;
-        });
-      }
+      const displayVoters = filterVotersForUser(uniqueVoters, displayTeams);
 
       setAllVoters(displayVoters);
       setTotalVotersCount(displayVoters.length);
@@ -2065,7 +2129,7 @@ export default function CoordinatorDashboard({
       : firestoreService.subscribeToCollectionFiltered<any>('voters', coordinatorId, handleIncomingVoters);
 
     return () => unsubVoters();
-  }, [coordinatorId, teams, displayTeams, isGeral, isRegional]);
+  }, [coordinatorId, teams, displayTeams, isGeral, isRegional, filterVotersForUser]);
 
   // 4. Sincronização reativa paginada para a listagem principal de eleitores da campanha
   useEffect(() => {
@@ -2073,7 +2137,7 @@ export default function CoordinatorDashboard({
 
     setLoadingPaginatedVoters(true);
     firestoreService.getCollectionFiltered<any>('voters', coordinatorId).then((data) => {
-      let filtered = data;
+      let filtered = filterVotersForUser(data, displayTeams);
       if (articulatorFilter) {
         filtered = filtered.filter(v => v.articulatorId === articulatorFilter);
       }
@@ -2085,7 +2149,7 @@ export default function CoordinatorDashboard({
       console.warn("Error getting paginated voters:", err);
       setLoadingPaginatedVoters(false);
     });
-  }, [coordinatorId, activeTab, voterPage, articulatorFilter]);
+  }, [coordinatorId, activeTab, voterPage, articulatorFilter, displayTeams, filterVotersForUser]);
 
   // 5. Carregar articuladores específicos para a campanha
   useEffect(() => {
@@ -2835,7 +2899,7 @@ export default function CoordinatorDashboard({
               <div className="hidden xl:block text-left">
                 <p className="text-[11px] font-black text-zinc-950 leading-none mb-0.5">{profileData?.name || user?.email?.split('@')[0]}</p>
                 <p className="text-[8px] font-bold text-zinc-500 uppercase tracking-widest">
-                  {(profileData?.role === 'coordenador_regional' || isRegional || (user?.email && user.email.toLowerCase().includes('antonio')) || (profileData?.email && profileData.email.toLowerCase().includes('antonio')) || (profileData?.name && profileData.name.toLowerCase().includes('antonio'))) 
+                  {(profileData?.role === 'coordenador_regional' || isRegional) 
                     ? 'COORDENADOR REGIONAL' 
                     : (profileData?.role === 'coordenador_geral' || isGeral) 
                     ? 'COORDENADOR GERAL' 
@@ -5948,7 +6012,7 @@ export default function CoordinatorDashboard({
                         Configurações do Sistema
                       </h2>
                       <p className="text-blue-600 text-[8px] font-black mt-2 uppercase tracking-widest">
-                        Acesso de {(profileData?.role === 'coordenador_regional' || isRegional || (user?.email && user.email.toLowerCase().includes('antonio')) || (profileData?.email && profileData.email.toLowerCase().includes('antonio')) || (profileData?.name && profileData.name.toLowerCase().includes('antonio'))) ? 'Coordenação Regional' : (profileData?.role === 'coordenador_geral' || isGeral) ? 'Coordenação Geral' : isLeader ? 'Liderança de Equipe' : 'Coordenação'}
+                        Acesso de {(profileData?.role === 'coordenador_regional' || isRegional) ? 'Coordenação Regional' : (profileData?.role === 'coordenador_geral' || isGeral) ? 'Coordenação Geral' : isLeader ? 'Liderança de Equipe' : 'Coordenação'}
                       </p>
                    </div>
                 </div>
