@@ -230,7 +230,29 @@ export default function CaboDashboard({
       let unsubUrgencies: (() => void) | null = null;
       
       let currentSubscribedCoordId: string | null = null;
-      let subscribedMaterials = false;
+      
+      if (unsubMaterials) unsubMaterials();
+      unsubMaterials = firestoreService.subscribeToCollection<any>('materials', (mats) => {
+        setMaterials(mats);
+        if (!mats || mats.length === 0) {
+          import('../lib/campaignSeedService').then(m => m.ensureSeedCampaignData()).catch(() => {});
+        }
+      });
+
+      if (unsubMaterialRequests) unsubMaterialRequests();
+      unsubMaterialRequests = firestoreService.subscribeToCollection<any>('material_requests', (requests) => {
+        if (user) {
+          const leaderEmailLower = user.email?.toLowerCase().trim();
+          const leaderNameLower = (profileData?.name || user.displayName || '').toLowerCase().trim();
+          const filtered = requests.filter((r: any) => 
+            r.leaderId === user.uid || 
+            r.createdBy === user.uid || 
+            (r.leaderEmail && leaderEmailLower && r.leaderEmail.toLowerCase().trim() === leaderEmailLower) ||
+            (r.leaderName && leaderNameLower && r.leaderName.toLowerCase().trim().includes(leaderNameLower))
+          );
+          setMaterialRequests(filtered);
+        }
+      });
       
       let unsubProfile: (() => void) | null = null;
       if (user?.uid && user.uid.startsWith('demo_')) {
@@ -242,12 +264,6 @@ export default function CaboDashboard({
         });
         const demoCoordId = 'demo_coord_geral';
         setResolvedCoordinatorId(demoCoordId);
-
-        if (!subscribedMaterials) {
-          subscribedMaterials = true;
-          if (unsubMaterials) unsubMaterials();
-          unsubMaterials = firestoreService.subscribeToCollection<any>('materials', (data) => setMaterials(data));
-        }
 
         if (demoCoordId !== currentSubscribedCoordId) {
           currentSubscribedCoordId = demoCoordId;
@@ -280,12 +296,6 @@ export default function CaboDashboard({
               photoUrl: data.photoUrl || user.photoURL || prev?.photoUrl || '',
               zone: (teamName && teamName !== 'SETOR NÃO DEFINIDO' && teamName !== 'Base') ? teamName : (teamData?.name || prev?.zone || '')
             }));
-            
-            if (!subscribedMaterials) {
-              subscribedMaterials = true;
-              if (unsubMaterials) unsubMaterials();
-              unsubMaterials = firestoreService.subscribeToCollection<any>('materials', (mats) => setMaterials(mats));
-            }
             
             let resolvedCoordId = data.coordinatorId || coordinatorId || '';
             if (resolvedCoordId) {
@@ -733,6 +743,7 @@ export default function CaboDashboard({
     
     await firestoreService.addDocument('material_requests', {
       leaderId: user.uid,
+      leaderEmail: user?.email || '',
       leaderName: profileData.name || user?.displayName || 'Líder',
       teamId: teamData?.id || profileData.teamId || '',
       team: profileData.zone || teamData?.name || 'Base',
@@ -742,7 +753,7 @@ export default function CaboDashboard({
       reason,
       returnDate,
       status: 'pendente',
-      coordinatorId: resolvedCoordinatorId || coordinatorId || teamData?.coordinatorId || '',
+      coordinatorId: resolvedCoordinatorId || coordinatorId || teamData?.coordinatorId || 'geral',
       regionalCoordId: profileData.regionalCoordId || teamData?.regionalCoordId || '',
       createdBy: user.uid,
       createdAt: Date.now()

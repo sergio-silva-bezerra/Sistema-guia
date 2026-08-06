@@ -1997,8 +1997,18 @@ export default function CoordinatorDashboard({
       }
     });
 
-    const unsubMaterials = firestoreService.subscribeToCollection<any>('materials', (data) => setMaterials(data));
-    const unsubMaterialRequests = firestoreService.subscribeToCollection<any>('material_requests', (data) => setMaterialRequests(data));
+    const unsubMaterials = firestoreService.subscribeToCollection<any>('materials', (data) => {
+      setMaterials(data);
+      if (!data || data.length === 0) {
+        import('../lib/campaignSeedService').then(m => m.ensureSeedCampaignData()).catch(() => {});
+      }
+    });
+    const unsubMaterialRequests = firestoreService.subscribeToCollection<any>('material_requests', (data) => {
+      setMaterialRequests(data);
+      if (!data || data.length === 0) {
+        import('../lib/campaignSeedService').then(m => m.ensureSeedCampaignData()).catch(() => {});
+      }
+    });
     const unsubReports = firestoreService.subscribeToCollectionFiltered('reports', coordinatorId, (data) => setReportsHistory(data));
 
     return () => {

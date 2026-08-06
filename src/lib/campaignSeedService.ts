@@ -1032,6 +1032,43 @@ export const SEED_MATERIALS = [
   }
 ];
 
+export const SEED_MATERIAL_REQUESTS = [
+  {
+    id: 'req_santinhos_pinto',
+    leaderId: 'marcos.lider@campanha.com',
+    leaderName: 'Marcos Silva (Líder Pintolândia)',
+    leaderEmail: 'marcos.lider@campanha.com',
+    teamId: 'team_01',
+    team: 'EQUIPE 01 - PINTOLÂNDIA (BOA VISTA)',
+    materialId: 'mat_santinhos',
+    materialName: 'Santinhos de Campanha 55000',
+    qty: 2500,
+    reason: 'Panfletagem na feira do Pintolândia e comício de bairro.',
+    status: 'pendente',
+    coordinatorId: 'geral',
+    regionalCoordId: 'antonio.regional@campanha.com',
+    createdBy: 'marcos.lider@campanha.com',
+    createdAt: Date.now() - 3600000 * 5
+  },
+  {
+    id: 'req_adesivos_centro',
+    leaderId: 'roberto.lider@campanha.com',
+    leaderName: 'Roberto Carlos (Líder Centro)',
+    leaderEmail: 'roberto.lider@campanha.com',
+    teamId: 'team_02',
+    team: 'EQUIPE 02 - CENTRO & UNIÃO (BOA VISTA)',
+    materialId: 'mat_adesivos',
+    materialName: 'Adesivos Perfurados para Carro',
+    qty: 300,
+    reason: 'Pitstop de adesivação de veículos no centro urbano.',
+    status: 'pendente',
+    coordinatorId: 'geral',
+    regionalCoordId: 'antonio.regional@campanha.com',
+    createdBy: 'roberto.lider@campanha.com',
+    createdAt: Date.now() - 3600000 * 2
+  }
+];
+
 let seedInProgress = false;
 
 export async function ensureSeedCampaignData(): Promise<void> {
@@ -1085,12 +1122,21 @@ export async function ensureSeedCampaignData(): Promise<void> {
       }
     }
 
-    // 4. Seed Materials if missing
+    // 4. Seed Materials: ensure all SEED_MATERIALS exist
     const existingMaterials = await firestoreService.getCollection<any>('materials');
-    if (!existingMaterials || existingMaterials.length === 0) {
-      console.log("🌱 Alimentando estoque inicial de materiais da campanha...");
-      for (const mat of SEED_MATERIALS) {
+    for (const mat of SEED_MATERIALS) {
+      const found = existingMaterials.find(m => m.id === mat.id || (m.name && m.name.toLowerCase().trim() === mat.name.toLowerCase().trim()));
+      if (!found) {
         await firestoreService.setDocument('materials', mat.id, mat, true);
+      }
+    }
+
+    // 5. Seed Material Requests: ensure sample requests exist
+    const existingRequests = await firestoreService.getCollection<any>('material_requests');
+    for (const req of SEED_MATERIAL_REQUESTS) {
+      const found = existingRequests.find(r => r.id === req.id);
+      if (!found) {
+        await firestoreService.setDocument('material_requests', req.id, req, true);
       }
     }
   } catch (err) {
