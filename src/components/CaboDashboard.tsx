@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import logoImg from '../assets/logo.png';
 import { TreLocationFields } from './TreLocationFields';
 import { 
@@ -211,6 +211,45 @@ export default function CaboDashboard({
   useEffect(() => {
     setVoterPage(1);
   }, [voterSearch, voterFilterTags]);
+
+  const isVoterForLeader = useCallback((voter: any) => {
+    if (!voter) return false;
+
+    // 1. Match leaderId directly
+    if (user?.uid && voter.leaderId === user.uid) return true;
+    if (user?.uid && (voter.createdBy === user.uid || voter.registeredBy === user.uid)) return true;
+
+    // 2. Match leaderEmail or registeredBy / createdBy email
+    const userEmail = (user?.email || profileData?.email || teamData?.leaderEmail || '').toLowerCase().trim();
+    const vLeaderEmail = (voter.leaderEmail || '').toLowerCase().trim();
+    const vRegEmail = (voter.registeredBy || '').toLowerCase().trim();
+    const vCreatedEmail = (voter.createdBy || '').toLowerCase().trim();
+    if (userEmail && userEmail.includes('@')) {
+      if (vLeaderEmail === userEmail || vRegEmail === userEmail || vCreatedEmail === userEmail) return true;
+    }
+
+    // 3. Match teamId or teamName
+    if (teamData?.id && voter.teamId && String(voter.teamId) === String(teamData.id)) return true;
+    if (profileData?.teamId && voter.teamId && String(voter.teamId) === String(profileData.teamId)) return true;
+
+    const teamName = (teamData?.name || profileData?.zone || profileData?.teamName || '').toLowerCase().trim();
+    const voterTeamName = (voter.team || voter.teamName || '').toLowerCase().trim();
+    if (teamName && voterTeamName && voterTeamName !== 'setornaodefinido' && voterTeamName !== 'base') {
+      if (voterTeamName === teamName) return true;
+      if (voterTeamName.length >= 6 && teamName.length >= 6 && (voterTeamName.includes(teamName) || teamName.includes(voterTeamName))) return true;
+    }
+
+    // 4. Match leader name
+    const leaderName = (profileData?.name || user?.displayName || teamData?.leader || '').toLowerCase().trim();
+    const voterLeaderName = (voter.leaderName || voter.leader || '').toLowerCase().trim();
+    if (leaderName && voterLeaderName && voterLeaderName.length >= 4) {
+      if (voterLeaderName === leaderName) return true;
+      if (voterLeaderName.includes(leaderName) || leaderName.includes(voterLeaderName)) return true;
+    }
+
+    return false;
+  }, [user, profileData, teamData]);
+
   const healedRef = useRef<Set<string>>(new Set());
   const [myAgendas, setMyAgendas] = useState<any[]>([]);
   const [selectedVoter, setSelectedVoter] = useState<any>(null);
@@ -354,25 +393,33 @@ export default function CaboDashboard({
               const healVotersAndRequests = async (rCoordId: string) => {
                 try {
                   const targetTeamName = teamData?.name || profileData.zone || '';
+                  const targetTeamId = teamData?.id || profileData.teamId || '';
                   const allVoters = await firestoreService.getCollection<any>('voters');
-                  const myVoters = allVoters.filter(v => v.leaderId === user.uid);
+                  const myVoters = allVoters.filter(v => isVoterForLeader(v));
                   
                   for (const v of myVoters) {
+                    const needsLeaderId = user?.uid && v.leaderId !== user.uid;
                     const needsCoord = !v.coordinatorId || v.coordinatorId === '';
                     const needsTeam = targetTeamName && (v.team !== targetTeamName || v.teamName !== targetTeamName);
-                    if (needsCoord || needsTeam) {
+                    const needsTeamId = targetTeamId && v.teamId !== targetTeamId;
+                    if (needsLeaderId || needsCoord || needsTeam || needsTeamId) {
                       const updates: any = {};
+                      if (needsLeaderId) updates.leaderId = user.uid;
                       if (needsCoord) updates.coordinatorId = rCoordId;
                       if (targetTeamName) {
                         updates.team = targetTeamName;
                         updates.teamName = targetTeamName;
                       }
+                      if (targetTeamId) updates.teamId = targetTeamId;
                       await firestoreService.updateDocument('voters', v.id, updates);
                     }
                   }
 
                   const allRequests = await firestoreService.getCollection<any>('material_requests');
-                  const myRequests = allRequests.filter(r => r.leaderId === user.uid && (!r.coordinatorId || r.coordinatorId === ''));
+                  const myRequests = allRequests.filter(r => 
+                    (r.leaderId === user.uid || r.createdBy === user.uid || (r.leaderEmail && user?.email && r.leaderEmail.toLowerCase().trim() === user.email.toLowerCase().trim())) && 
+                    (!r.coordinatorId || r.coordinatorId === '')
+                  );
                   for (const r of myRequests) {
                     await firestoreService.updateDocument('material_requests', r.id, { coordinatorId: rCoordId });
                   }
@@ -449,7 +496,10 @@ export default function CaboDashboard({
     if (!user?.uid) return;
     try {
       const allVoters = await firestoreService.getCollection<any>('voters');
-      const myVoters = allVoters.filter(v => v.leaderId === user.uid);
+      if (!allVoters || allVoters.length === 0) {
+        import('../lib/campaignSeedService').then(m => m.ensureSeedCampaignData()).catch(() => {});
+      }
+      const myVoters = allVoters.filter(v => isVoterForLeader(v));
       setTotalVotersCount(myVoters.length);
       setVotedVotersCount(myVoters.filter(v => v.voted).length);
     } catch (err) {
@@ -461,16 +511,18 @@ export default function CaboDashboard({
     if (user?.uid) {
       fetchServerCounts();
     }
-  }, [user?.uid, activeTab]);
+  }, [user?.uid, activeTab, isVoterForLeader]);
 
   // 2. Sincronização de eleitores do Líder
   useEffect(() => {
     if (!user?.uid) return;
-    if (activeTab !== 'equipe' && activeTab !== 'analise_eleitoral') return;
 
     setLoadingPaginatedVoters(true);
     const unsub = firestoreService.subscribeToCollection<any>('voters', (allVoters) => {
-      const docs = allVoters.filter(v => v.leaderId === user.uid);
+      if (!allVoters || allVoters.length === 0) {
+        import('../lib/campaignSeedService').then(m => m.ensureSeedCampaignData()).catch(() => {});
+      }
+      const docs = allVoters.filter(v => isVoterForLeader(v));
       const sorted = docs.sort((a: any, b: any) => (a.name || '').localeCompare(b.name || ''));
       setVoters(sorted);
       setPaginatedVotersList(sorted);
@@ -480,7 +532,7 @@ export default function CaboDashboard({
     });
 
     return () => unsub();
-  }, [user?.uid, activeTab, voterPage]);
+  }, [user?.uid, activeTab, voterPage, isVoterForLeader]);
 
   // 3. Sincroniza campanha para autocomplete de forma sob demanda
   useEffect(() => {
