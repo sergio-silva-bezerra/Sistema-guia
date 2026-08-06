@@ -14,6 +14,27 @@ function getLocalKey(path: string, id?: string) {
   return id ? `nexus_sb_${path}_${id}` : `nexus_sb_${path}_list`;
 }
 
+// Local subscriber registry
+interface Subscriber {
+  path: string;
+  coordinatorId?: string;
+  callback: (data: any[]) => void;
+}
+
+const activeSubscribers = new Set<Subscriber>();
+
+function notifySubscribers(path: string) {
+  activeSubscribers.forEach(sub => {
+    if (sub.path === path) {
+      if (sub.coordinatorId) {
+        firestoreService.getCollectionFiltered(path, sub.coordinatorId).then(sub.callback).catch(() => {});
+      } else {
+        firestoreService.getCollection(path).then(sub.callback).catch(() => {});
+      }
+    }
+  });
+}
+
 // Get cached local list
 function getLocalList<T>(path: string): T[] {
   try {
@@ -48,16 +69,11 @@ export const firestoreService = {
             ...(row.payload || {})
           })) as any[];
 
-          const itemMap = new Map<string, any>();
-          localItems.forEach(item => { if (item && item.id) itemMap.set(item.id, item); });
-          supabaseItems.forEach(item => { if (item && item.id) itemMap.set(item.id, item); });
-
-          const allMerged = Array.from(itemMap.values());
-          setLocalList(path, allMerged);
-          if ((path === 'voters' || path === 'teams') && allMerged.length === 0) {
+          setLocalList(path, supabaseItems);
+          if ((path === 'voters' || path === 'teams') && supabaseItems.length === 0) {
             import('./campaignSeedService').then(m => m.ensureSeedCampaignData()).catch(() => {});
           }
-          return allMerged as T[];
+          return supabaseItems as T[];
         }
       } catch (e) {
         console.warn(`Supabase getCollection error for ${path}:`, e);
@@ -118,6 +134,8 @@ export const firestoreService = {
       localStorage.setItem(getLocalKey(path, id), JSON.stringify(payload));
     } catch (e) {}
 
+    notifySubscribers(path);
+
     if (client) {
       try {
         const { data: existingRow } = await client
@@ -141,6 +159,7 @@ export const firestoreService = {
             payload: payload
           });
         }
+        notifySubscribers(path);
       } catch (e) {
         console.warn(`Supabase setDocument error for ${path}/${id}:`, e);
       }
@@ -160,6 +179,8 @@ export const firestoreService = {
       localStorage.removeItem(getLocalKey(path, id));
     } catch (e) {}
 
+    notifySubscribers(path);
+
     const client = getSupabaseClient();
     if (client) {
       try {
@@ -168,6 +189,7 @@ export const firestoreService = {
           .delete()
           .eq('record_type', path)
           .eq('record_id', id);
+        notifySubscribers(path);
       } catch (e) {
         console.warn(`Supabase deleteDocument error for ${path}/${id}:`, e);
       }
@@ -181,13 +203,17 @@ export const firestoreService = {
   },
 
   subscribeToCollection<T>(path: string, callback: (data: T[]) => void) {
-    // Initial emission from Supabase or LocalStorage
+    const subObj = { path, callback: callback as any };
+    activeSubscribers.add(subObj);
+
+    // Initial emission
     firestoreService.getCollection<T>(path).then(callback);
 
     const client = getSupabaseClient();
+    let channel: any = null;
     if (client) {
-      const channel = client
-        .channel(`public:campaign_records:${path}`)
+      channel = client
+        .channel(`public:campaign_records:${path}_${Math.random().toString(36).substring(2, 7)}`)
         .on('postgres_changes', {
           event: '*',
           schema: 'public',
@@ -197,22 +223,27 @@ export const firestoreService = {
           firestoreService.getCollection<T>(path).then(callback);
         })
         .subscribe();
-
-      return () => {
-        client.removeChannel(channel);
-      };
     }
 
-    return () => {};
+    return () => {
+      activeSubscribers.delete(subObj);
+      if (client && channel) {
+        client.removeChannel(channel);
+      }
+    };
   },
 
   subscribeToCollectionFiltered<T>(path: string, coordinatorId: string, callback: (data: T[]) => void) {
+    const subObj = { path, coordinatorId, callback: callback as any };
+    activeSubscribers.add(subObj);
+
     firestoreService.getCollectionFiltered<T>(path, coordinatorId).then(callback);
 
     const client = getSupabaseClient();
+    let channel: any = null;
     if (client) {
-      const channel = client
-        .channel(`public:campaign_records:${path}:${coordinatorId}`)
+      channel = client
+        .channel(`public:campaign_records:${path}:${coordinatorId}_${Math.random().toString(36).substring(2, 7)}`)
         .on('postgres_changes', {
           event: '*',
           schema: 'public',
@@ -222,13 +253,14 @@ export const firestoreService = {
           firestoreService.getCollectionFiltered<T>(path, coordinatorId).then(callback);
         })
         .subscribe();
-
-      return () => {
-        client.removeChannel(channel);
-      };
     }
 
-    return () => {};
+    return () => {
+      activeSubscribers.delete(subObj);
+      if (client && channel) {
+        client.removeChannel(channel);
+      }
+    };
   },
 
   async getCollectionFiltered<T>(path: string, coordinatorId: string): Promise<T[]> {
@@ -249,19 +281,14 @@ export const firestoreService = {
             ...(row.payload || {})
           })) as any[];
 
-          const itemMap = new Map<string, any>();
-          localItems.forEach(item => { if (item && item.id) itemMap.set(item.id, item); });
-          supabaseItems.forEach(item => { if (item && item.id) itemMap.set(item.id, item); });
-
-          const allMerged = Array.from(itemMap.values());
-          setLocalList(path, allMerged);
-          if ((path === 'voters' || path === 'teams') && allMerged.length === 0) {
+          setLocalList(path, supabaseItems);
+          if ((path === 'voters' || path === 'teams') && supabaseItems.length === 0) {
             import('./campaignSeedService').then(m => m.ensureSeedCampaignData()).catch(() => {});
           }
 
-          if (!coordinatorId || coordinatorId === 'all' || coordinatorId === 'geral') return allMerged as T[];
+          if (!coordinatorId || coordinatorId === 'all' || coordinatorId === 'geral') return supabaseItems as T[];
 
-          return allMerged.filter(item => {
+          return supabaseItems.filter(item => {
             if (!item) return false;
             const itemCoord = item.coordinatorId || item.coordinator_id;
             const itemReg = item.regionalCoordId;

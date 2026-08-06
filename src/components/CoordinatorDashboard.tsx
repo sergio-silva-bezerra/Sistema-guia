@@ -1374,8 +1374,8 @@ export default function CoordinatorDashboard({
   const handleAddMaterial = async (e: any) => {
     e.preventDefault();
     try {
-      const name = e.target.name.value.trim();
-      const rawQty = e.target.qty.value;
+      const name = (materialForm.name || (e.target?.name?.value || '')).trim();
+      const rawQty = materialForm.qty || (e.target?.qty?.value || '');
       const qtyStr = rawQty.toString().replace(/\D/g, ''); 
       const qty = parseInt(qtyStr, 10);
       
@@ -1384,7 +1384,7 @@ export default function CoordinatorDashboard({
         return;
       }
       
-      const existing = materials.find(m => m.name.toLowerCase() === name.toLowerCase());
+      const existing = materials.find(m => m.name && m.name.toLowerCase() === name.toLowerCase());
       
       if (existing) {
         await firestoreService.updateDocument('materials', existing.id, {
@@ -1402,7 +1402,7 @@ export default function CoordinatorDashboard({
         });
         alert("Material registrado com sucesso!");
       }
-      e.target.reset();
+      if (e.target?.reset) e.target.reset();
       setMaterialForm({ name: '', qty: '' });
     } catch (err: any) {
       alert("Erro ao salvar: " + err.message);
