@@ -843,11 +843,6 @@ export default function CoordinatorDashboard({
                 createdAt: p.createdAt || existing.createdAt || Date.now()
               };
               map.set(key, merged);
-
-              // Auto-persist to regional_coordinators if missing
-              if (!existing.id) {
-                firestoreService.setDocument('regional_coordinators', merged.id, merged);
-              }
             }
           }
         });
@@ -873,11 +868,6 @@ export default function CoordinatorDashboard({
                 createdAt: u.createdAt || existing.createdAt || Date.now()
               };
               map.set(key, merged);
-
-              // Auto-persist to regional_coordinators if missing
-              if (!existing.id) {
-                firestoreService.setDocument('regional_coordinators', merged.id, merged);
-              }
             }
           }
         });
@@ -2092,26 +2082,16 @@ export default function CoordinatorDashboard({
       });
       const uniqueVoters = Array.from(uniqueMap.values());
 
-      // Auto-heal: associa eleitores com a equipe correta caso estejam como "SETOR NÃO DEFINIDO" ou "Base"
+      // Auto-heal em memória: associa eleitores com a equipe correta para exibição instantânea sem loop de escrita
       if (teams && teams.length > 0) {
         uniqueVoters.forEach((v: any) => {
           const matchedTeam = teams.find(t => isVoterInTeam(v, t));
           if (matchedTeam) {
-            const needsUpdate = !v.teamId || v.teamId !== matchedTeam.id || !v.teamName || v.teamName !== matchedTeam.name || (matchedTeam.regionalCoordId && !v.regionalCoordId);
-            if (needsUpdate) {
-              v.team = matchedTeam.name;
-              v.teamName = matchedTeam.name;
-              v.teamId = matchedTeam.id;
-              if (matchedTeam.regionalCoordId) v.regionalCoordId = matchedTeam.regionalCoordId;
-              if (matchedTeam.regionalCoordEmail) v.regionalCoordEmail = matchedTeam.regionalCoordEmail;
-              firestoreService.updateDocument('voters', v.id, {
-                team: matchedTeam.name,
-                teamName: matchedTeam.name,
-                teamId: matchedTeam.id,
-                regionalCoordId: matchedTeam.regionalCoordId || '',
-                regionalCoordEmail: matchedTeam.regionalCoordEmail || ''
-              }).catch(e => console.warn("Erro ao auto-vincular eleitor à equipe:", e));
-            }
+            v.team = matchedTeam.name;
+            v.teamName = matchedTeam.name;
+            v.teamId = matchedTeam.id;
+            if (matchedTeam.regionalCoordId) v.regionalCoordId = matchedTeam.regionalCoordId;
+            if (matchedTeam.regionalCoordEmail) v.regionalCoordEmail = matchedTeam.regionalCoordEmail;
           }
         });
       }
@@ -2166,49 +2146,6 @@ export default function CoordinatorDashboard({
 
     fetchArticulators();
   }, [coordinatorId, activeTab]);
-
-  useEffect(() => {
-    if (!coordinatorId || teams.length === 0) return;
-
-    const healCoordinatorVotersAndRequests = async () => {
-      try {
-        const allVoters = await firestoreService.getCollection<any>('voters');
-        const allRequests = await firestoreService.getCollection<any>('material_requests');
-        
-        for (const team of teams) {
-          const teamId = team.id || team.name.replace(/\s/g, '_').toLowerCase();
-          
-          const teamVoters = allVoters.filter(v => isVoterInTeam(v, team) || v.teamId === teamId);
-          for (const v of teamVoters) {
-            const updates: any = {};
-            if (v.coordinatorId !== 'geral' && v.coordinatorId !== coordinatorId) updates.coordinatorId = 'geral';
-            if (!v.teamId || v.teamId !== teamId) updates.teamId = teamId;
-            if (!v.teamName || v.teamName !== team.name) {
-              updates.team = team.name;
-              updates.teamName = team.name;
-            }
-            if (team.regionalCoordId && !v.regionalCoordId) updates.regionalCoordId = team.regionalCoordId;
-            if (team.regionalCoordEmail && !v.regionalCoordEmail) updates.regionalCoordEmail = team.regionalCoordEmail;
-            if (team.leader && !v.leaderName) updates.leaderName = team.leader;
-            if (team.leaderEmail && !v.leaderEmail) updates.leaderEmail = team.leaderEmail;
-
-            if (Object.keys(updates).length > 0) {
-              await firestoreService.updateDocument('voters', v.id, updates);
-            }
-          }
-
-          const teamReqs = allRequests.filter(r => (r.teamId === teamId || r.team === team.name) && r.coordinatorId !== coordinatorId);
-          for (const r of teamReqs) {
-            await firestoreService.updateDocument('material_requests', r.id, { coordinatorId: 'geral', teamId });
-          }
-        }
-      } catch (err) {
-        console.error("Error healing coordinator records:", err);
-      }
-    };
-
-    healCoordinatorVotersAndRequests();
-  }, [teams, coordinatorId]);
 
   // --- GLOBAL SEARCH LOGIC ---
   useEffect(() => {

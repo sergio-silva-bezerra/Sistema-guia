@@ -163,15 +163,25 @@ export default function App() {
     return () => window.removeEventListener('open_sales_landing', handleOpenSales);
   }, []);
 
-  // Handle URL Params for Easy Access
+  // Handle URL Params for Easy Access & Auto-Login
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const emailParam = params.get('email');
     const tokenParam = params.get('access_token');
     const roleParam = params.get('role');
     
+    let decodedPass = '';
+    if (tokenParam) {
+      try {
+        decodedPass = atob(tokenParam);
+        setPassword(decodedPass);
+      } catch (e) {
+        console.error("Token inválido");
+      }
+    }
+
     if (emailParam) {
-      if (user && user.email !== emailParam) {
+      if (user && user.email?.toLowerCase().trim() !== emailParam.toLowerCase().trim()) {
         logout();
       }
       setEmail(emailParam);
@@ -179,17 +189,8 @@ export default function App() {
 
     if (roleParam === 'lider') {
       setUserRole('lider');
-    } else if (roleParam === 'coordenador_regional' || (emailParam && emailParam.toLowerCase().includes('joao'))) {
+    } else if (roleParam === 'coordenador_regional') {
       setUserRole('coordenador_regional');
-    }
-    
-    if (tokenParam) {
-      try {
-        const decodedPass = atob(tokenParam);
-        setPassword(decodedPass);
-      } catch (e) {
-        console.error("Token inválido");
-      }
     }
 
     if (emailParam || tokenParam) {
@@ -199,7 +200,13 @@ export default function App() {
          console.warn("Navegação/Histórico restrito no iframe:", e);
        }
     }
-  }, [user]);
+
+    if (emailParam && decodedPass && (!user || user.email?.toLowerCase().trim() !== emailParam.toLowerCase().trim())) {
+      loginWithEmail(emailParam, decodedPass).catch(err => {
+        console.warn("Auto-login inicial via token, aguardando submissão manual se necessário:", err);
+      });
+    }
+  }, []);
 
   if (isExternalRegister) {
     return (
