@@ -997,6 +997,41 @@ export const SEED_VOTERS: SeedVoter[] = [
   }
 ];
 
+export const SEED_MATERIALS = [
+  {
+    id: 'mat_santinhos',
+    name: 'Santinhos de Campanha 55000',
+    total: 50000,
+    current: 45000,
+    coordinatorId: 'geral',
+    createdAt: Date.now() - 86400000 * 10
+  },
+  {
+    id: 'mat_adesivos',
+    name: 'Adesivos Perfurados para Carro',
+    total: 5000,
+    current: 3800,
+    coordinatorId: 'geral',
+    createdAt: Date.now() - 86400000 * 8
+  },
+  {
+    id: 'mat_cadeiras',
+    name: 'Cadeiras de Plástico (Eventos)',
+    total: 10000,
+    current: 10000,
+    coordinatorId: 'geral',
+    createdAt: Date.now() - 86400000 * 5
+  },
+  {
+    id: 'mat_datashow',
+    name: 'Data-Show / Projetor de Reunião',
+    total: 20,
+    current: 20,
+    coordinatorId: 'geral',
+    createdAt: Date.now() - 86400000 * 3
+  }
+];
+
 let seedInProgress = false;
 
 export async function ensureSeedCampaignData(): Promise<void> {
@@ -1047,6 +1082,15 @@ export async function ensureSeedCampaignData(): Promise<void> {
       console.log("🌱 Alimentando equipes e líderes de campo...");
       for (const team of SEED_TEAMS) {
         await firestoreService.setDocument('teams', team.id, team, true);
+      }
+    }
+
+    // 4. Seed Materials if missing
+    const existingMaterials = await firestoreService.getCollection<any>('materials');
+    if (!existingMaterials || existingMaterials.length === 0) {
+      console.log("🌱 Alimentando estoque inicial de materiais da campanha...");
+      for (const mat of SEED_MATERIALS) {
+        await firestoreService.setDocument('materials', mat.id, mat, true);
       }
     }
   } catch (err) {

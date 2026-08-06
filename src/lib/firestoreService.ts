@@ -69,17 +69,22 @@ export const firestoreService = {
             ...(row.payload || {})
           })) as any[];
 
-          setLocalList(path, supabaseItems);
-          if ((path === 'voters' || path === 'teams') && supabaseItems.length === 0) {
+          const map = new Map<string, any>();
+          localItems.forEach(i => i && i.id && map.set(i.id, i));
+          supabaseItems.forEach(i => i && i.id && map.set(i.id, i));
+          const mergedList = Array.from(map.values());
+
+          setLocalList(path, mergedList);
+          if ((path === 'voters' || path === 'teams' || path === 'materials') && mergedList.length === 0) {
             import('./campaignSeedService').then(m => m.ensureSeedCampaignData()).catch(() => {});
           }
-          return supabaseItems as T[];
+          return mergedList as T[];
         }
       } catch (e) {
         console.warn(`Supabase getCollection error for ${path}:`, e);
       }
     }
-    if ((path === 'voters' || path === 'teams') && localItems.length === 0) {
+    if ((path === 'voters' || path === 'teams' || path === 'materials') && localItems.length === 0) {
       import('./campaignSeedService').then(m => m.ensureSeedCampaignData()).catch(() => {});
     }
     return localItems as T[];
@@ -266,6 +271,7 @@ export const firestoreService = {
   async getCollectionFiltered<T>(path: string, coordinatorId: string): Promise<T[]> {
     const client = getSupabaseClient();
     const localItems = getLocalList<any>(path);
+    let itemsToFilter: any[] = localItems;
 
     if (client) {
       try {
@@ -281,35 +287,31 @@ export const firestoreService = {
             ...(row.payload || {})
           })) as any[];
 
-          setLocalList(path, supabaseItems);
-          if ((path === 'voters' || path === 'teams') && supabaseItems.length === 0) {
+          const map = new Map<string, any>();
+          localItems.forEach(i => i && i.id && map.set(i.id, i));
+          supabaseItems.forEach(i => i && i.id && map.set(i.id, i));
+          itemsToFilter = Array.from(map.values());
+
+          setLocalList(path, itemsToFilter);
+          if ((path === 'voters' || path === 'teams' || path === 'materials') && itemsToFilter.length === 0) {
             import('./campaignSeedService').then(m => m.ensureSeedCampaignData()).catch(() => {});
           }
-
-          if (!coordinatorId || coordinatorId === 'all' || coordinatorId === 'geral') return supabaseItems as T[];
-
-          return supabaseItems.filter(item => {
-            if (!item) return false;
-            const itemCoord = item.coordinatorId || item.coordinator_id;
-            const itemReg = item.regionalCoordId;
-            const itemRegEmail = item.regionalCoordEmail;
-            return (
-              itemCoord === coordinatorId ||
-              itemCoord === 'geral' ||
-              itemReg === coordinatorId ||
-              itemRegEmail === coordinatorId ||
-              item.coordinatorId === 'geral' ||
-              !itemCoord
-            );
-          }) as T[];
         }
       } catch (e) {
         console.warn(`Supabase getCollectionFiltered error for ${path}:`, e);
       }
     }
 
-    if (!coordinatorId || coordinatorId === 'all' || coordinatorId === 'geral') return localItems as T[];
-    return localItems.filter(item => {
+    if ((path === 'voters' || path === 'teams' || path === 'materials') && itemsToFilter.length === 0) {
+      import('./campaignSeedService').then(m => m.ensureSeedCampaignData()).catch(() => {});
+    }
+
+    // Materials belong to the campaign inventory and are visible to all campaign roles
+    if (!coordinatorId || coordinatorId === 'all' || coordinatorId === 'geral' || path === 'materials') {
+      return itemsToFilter as T[];
+    }
+
+    return itemsToFilter.filter(item => {
       if (!item) return false;
       const itemCoord = item.coordinatorId || item.coordinator_id;
       const itemReg = item.regionalCoordId;

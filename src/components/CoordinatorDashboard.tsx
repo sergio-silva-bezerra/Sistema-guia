@@ -1389,7 +1389,8 @@ export default function CoordinatorDashboard({
       if (existing) {
         await firestoreService.updateDocument('materials', existing.id, {
           total: (existing.total || 0) + qty,
-          current: (existing.current || 0) + qty
+          current: (existing.current || 0) + qty,
+          coordinatorId: 'geral'
         });
         alert(`Quantidade adicionada ao material existente: ${name}`);
       } else {
@@ -1397,7 +1398,7 @@ export default function CoordinatorDashboard({
           name,
           total: qty,
           current: qty,
-          coordinatorId: coordinatorId || user?.uid || '',
+          coordinatorId: 'geral',
           createdAt: Date.now()
         });
         alert("Material registrado com sucesso!");
@@ -1463,7 +1464,8 @@ export default function CoordinatorDashboard({
       await firestoreService.updateDocument('materials', editingMaterialId, {
         name: materialForm.name,
         total: qty,
-        current: Math.max(0, qty - diffUsed)
+        current: Math.max(0, qty - diffUsed),
+        coordinatorId: 'geral'
       });
 
       setIsEditingMaterial(false);
@@ -1476,7 +1478,7 @@ export default function CoordinatorDashboard({
   };
 
   const handleApproveMaterialRequest = (req: any) => {
-    const mat = materials.find(m => m.id === req.materialId);
+    const mat = materials.find(m => m.id === req.materialId || (m.name && req.materialName && m.name.toLowerCase().trim() === req.materialName.toLowerCase().trim()));
     if (!mat) {
       alert("Material não encontrado no estoque!");
       return;
@@ -1501,7 +1503,7 @@ export default function CoordinatorDashboard({
 
     try {
       const req = signingRequest;
-      const mat = materials.find(m => m.id === req.materialId);
+      const mat = materials.find(m => m.id === req.materialId || (m.name && req.materialName && m.name.toLowerCase().trim() === req.materialName.toLowerCase().trim()));
       if (!mat) {
         alert("Material não encontrado no estoque!");
         return;
@@ -1513,7 +1515,7 @@ export default function CoordinatorDashboard({
       }
 
       // Update material qty
-      await firestoreService.updateDocument('materials', req.materialId, {
+      await firestoreService.updateDocument('materials', mat.id, {
         current: mat.current - req.qty
       });
 
