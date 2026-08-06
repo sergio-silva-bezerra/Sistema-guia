@@ -211,6 +211,7 @@ export default function CaboDashboard({
   useEffect(() => {
     setVoterPage(1);
   }, [voterSearch, voterFilterTags]);
+  const healedRef = useRef<Set<string>>(new Set());
   const [myAgendas, setMyAgendas] = useState<any[]>([]);
   const [selectedVoter, setSelectedVoter] = useState<any>(null);
   const [isVoterDetailOpen, setIsVoterDetailOpen] = useState(false);
@@ -308,13 +309,23 @@ export default function CaboDashboard({
                 ...prev,
                 zone: matchedTeam.name || prev?.zone || 'RUMO A VITÓRIA'
               }));
-              firestoreService.updateDocument('users', user.uid, {
-                teamId: matchedTeam.id,
-                teamName: matchedTeam.name || '',
-                team: matchedTeam.name || '',
-                regionalCoordId: matchedTeam.regionalCoordId || '',
-                regionalCoordEmail: matchedTeam.regionalCoordEmail || ''
-              }).catch(err => console.error("Error healing profile with matching team:", err));
+              
+              const needsTeamSync = 
+                data.teamId !== matchedTeam.id ||
+                data.teamName !== (matchedTeam.name || '') ||
+                data.team !== (matchedTeam.name || '') ||
+                data.regionalCoordId !== (matchedTeam.regionalCoordId || '') ||
+                data.regionalCoordEmail !== (matchedTeam.regionalCoordEmail || '');
+
+              if (needsTeamSync) {
+                firestoreService.updateDocument('users', user.uid, {
+                  teamId: matchedTeam.id,
+                  teamName: matchedTeam.name || '',
+                  team: matchedTeam.name || '',
+                  regionalCoordId: matchedTeam.regionalCoordId || '',
+                  regionalCoordEmail: matchedTeam.regionalCoordEmail || ''
+                }).catch(err => console.error("Error healing profile with matching team:", err));
+              }
             }
           }).catch(err => console.warn("Erro ao buscar equipe por leader email/name:", err));
 
@@ -327,36 +338,40 @@ export default function CaboDashboard({
               }).catch(err => console.error("Error writing coordinatorId to user profile:", err));
             }
             
-            const healVotersAndRequests = async (rCoordId: string) => {
-              try {
-                const targetTeamName = teamData?.name || profileData.zone || '';
-                const allVoters = await firestoreService.getCollection<any>('voters');
-                const myVoters = allVoters.filter(v => v.leaderId === user.uid);
-                
-                for (const v of myVoters) {
-                  const needsCoord = !v.coordinatorId || v.coordinatorId === '';
-                  const needsTeam = targetTeamName && (v.team !== targetTeamName || v.teamName !== targetTeamName);
-                  if (needsCoord || needsTeam) {
-                    const updates: any = {};
-                    if (needsCoord) updates.coordinatorId = rCoordId;
-                    if (targetTeamName) {
-                      updates.team = targetTeamName;
-                      updates.teamName = targetTeamName;
+            const healKey = `${user.uid}_${resolvedCoordId}`;
+            if (!healedRef.current.has(healKey)) {
+              healedRef.current.add(healKey);
+              const healVotersAndRequests = async (rCoordId: string) => {
+                try {
+                  const targetTeamName = teamData?.name || profileData.zone || '';
+                  const allVoters = await firestoreService.getCollection<any>('voters');
+                  const myVoters = allVoters.filter(v => v.leaderId === user.uid);
+                  
+                  for (const v of myVoters) {
+                    const needsCoord = !v.coordinatorId || v.coordinatorId === '';
+                    const needsTeam = targetTeamName && (v.team !== targetTeamName || v.teamName !== targetTeamName);
+                    if (needsCoord || needsTeam) {
+                      const updates: any = {};
+                      if (needsCoord) updates.coordinatorId = rCoordId;
+                      if (targetTeamName) {
+                        updates.team = targetTeamName;
+                        updates.teamName = targetTeamName;
+                      }
+                      await firestoreService.updateDocument('voters', v.id, updates);
                     }
-                    await firestoreService.updateDocument('voters', v.id, updates);
                   }
-                }
 
-                const allRequests = await firestoreService.getCollection<any>('material_requests');
-                const myRequests = allRequests.filter(r => r.leaderId === user.uid && (!r.coordinatorId || r.coordinatorId === ''));
-                for (const r of myRequests) {
-                  await firestoreService.updateDocument('material_requests', r.id, { coordinatorId: rCoordId });
+                  const allRequests = await firestoreService.getCollection<any>('material_requests');
+                  const myRequests = allRequests.filter(r => r.leaderId === user.uid && (!r.coordinatorId || r.coordinatorId === ''));
+                  for (const r of myRequests) {
+                    await firestoreService.updateDocument('material_requests', r.id, { coordinatorId: rCoordId });
+                  }
+                } catch (err) {
+                  console.error("Error healing records:", err);
                 }
-              } catch (err) {
-                console.error("Error healing records:", err);
-              }
-            };
-            healVotersAndRequests(resolvedCoordId);
+              };
+              healVotersAndRequests(resolvedCoordId);
+            }
           }
 
           // Subscribe to transactions whenever team info is available

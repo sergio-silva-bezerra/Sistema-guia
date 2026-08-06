@@ -202,8 +202,34 @@ export default function App() {
     }
 
     if (emailParam && decodedPass && (!user || user.email?.toLowerCase().trim() !== emailParam.toLowerCase().trim())) {
-      loginWithEmail(emailParam, decodedPass).catch(err => {
-        console.warn("Auto-login inicial via token, aguardando submissão manual se necessário:", err);
+      const cleanEmail = emailParam.toLowerCase().trim();
+      loginWithEmail(cleanEmail, decodedPass).catch(async (err) => {
+        console.warn("Auto-login inicial via token falhou, tentando autenticação via pré-registro:", err);
+        try {
+          const preRegDoc = await firestoreService.getDocument<any>('pre_registrations', cleanEmail);
+          const regCoord = await firestoreService.getDocument<any>('regional_coordinators', cleanEmail);
+          const userDoc = await firestoreService.getDocument<any>('users', cleanEmail);
+          const foundPre = preRegDoc || regCoord || userDoc;
+          const tempPass = foundPre?.tempPassword || regCoord?.tempPassword;
+          
+          if (foundPre && (tempPass === decodedPass || !tempPass)) {
+            const assignedRole: UserRole = (foundPre?.role === 'lider' || roleParam === 'lider')
+              ? 'lider'
+              : (roleParam === 'coordenador_regional' || regCoord ? 'coordenador_regional' : (foundPre?.role || 'lider'));
+            await signupWithEmail(cleanEmail, decodedPass, assignedRole, {
+              name: foundPre.name || regCoord?.name || '',
+              phone: foundPre.phone || regCoord?.phone || '',
+              address: foundPre.address || '',
+              region: foundPre.region || regCoord?.region || '',
+              teamName: foundPre.teamName || '',
+              teamId: foundPre.teamId || '',
+              coordinatorId: foundPre.coordinatorId || regCoord?.coordinatorId || '',
+              forcePasswordChange: true
+            });
+          }
+        } catch (preErr) {
+          console.warn("Erro ao tentar auto-registro de líder via link:", preErr);
+        }
       });
     }
   }, []);
