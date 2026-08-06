@@ -22,6 +22,7 @@ import {
   StickyNote,
   CloudOff,
   RefreshCcw,
+  RotateCcw,
   User,
   Brain,
   Send,
@@ -1548,9 +1549,9 @@ export default function CoordinatorDashboard({
   const handleConfirmReturnMaterialRequest = async (req: any) => {
     if (confirm(`Confirmar recebimento de volta do material: ${req.materialName} (${req.qty} un) de ${req.leaderName}?`)) {
       try {
-        const mat = materials.find(m => m.id === req.materialId);
+        const mat = materials.find(m => m.id === req.materialId || (m.name && m.name.toLowerCase() === (req.materialName || '').toLowerCase()));
         if (mat) {
-          await firestoreService.updateDocument('materials', req.materialId, {
+          await firestoreService.updateDocument('materials', mat.id, {
             current: (mat.current || 0) + req.qty
           });
         }
@@ -1994,8 +1995,8 @@ export default function CoordinatorDashboard({
       }
     });
 
-    const unsubMaterials = firestoreService.subscribeToCollectionFiltered('materials', coordinatorId, (data) => setMaterials(data));
-    const unsubMaterialRequests = firestoreService.subscribeToCollectionFiltered('material_requests', coordinatorId, (data) => setMaterialRequests(data));
+    const unsubMaterials = firestoreService.subscribeToCollection<any>('materials', (data) => setMaterials(data));
+    const unsubMaterialRequests = firestoreService.subscribeToCollection<any>('material_requests', (data) => setMaterialRequests(data));
     const unsubReports = firestoreService.subscribeToCollectionFiltered('reports', coordinatorId, (data) => setReportsHistory(data));
 
     return () => {
@@ -4610,6 +4611,198 @@ export default function CoordinatorDashboard({
                         </div>
                       </div>
                    </div>
+                </div>
+
+                {/* VISIBILIDADE DE MATERIAIS E DEMANDAS DAS EQUIPES (COORDENADOR REGIONAL & GERAL) */}
+                <div className="space-y-8 pt-6 border-t border-[var(--border-color)]">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div>
+                      <h3 className="text-xl font-black uppercase text-[var(--text-primary)] tracking-tighter leading-none">Central de Demandas & Solicitações de Materiais</h3>
+                      <p className="text-[10px] font-black text-[var(--text-secondary)] uppercase tracking-[0.2em] mt-2 opacity-60">Visibilidade total de estoque geral e solicitações enviadas pelas equipes de campo</p>
+                    </div>
+                  </div>
+
+                  {/* STATS DE DEMANDAS DE MATERIAIS */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="bg-[var(--bg-secondary)] border border-[var(--border-color)] p-5 rounded-sm shadow-sm">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[9px] font-black uppercase tracking-widest text-[var(--text-secondary)]">Materiais no Estoque</span>
+                        <Package className="w-4 h-4 text-blue-600" />
+                      </div>
+                      <p className="text-2xl font-black text-[var(--text-primary)] mt-2">
+                        {materials.reduce((acc, m) => acc + (m.current || 0), 0).toLocaleString('pt-BR')} <span className="text-xs font-bold opacity-50">un.</span>
+                      </p>
+                      <p className="text-[8px] font-bold text-zinc-500 uppercase mt-1">{materials.length} categorias cadastradas</p>
+                    </div>
+
+                    <div className="bg-[var(--bg-secondary)] border border-[var(--border-color)] p-5 rounded-sm shadow-sm">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[9px] font-black uppercase tracking-widest text-[var(--text-secondary)]">Solicitações Pendentes</span>
+                        <Clock className="w-4 h-4 text-blue-600 animate-pulse" />
+                      </div>
+                      <p className="text-2xl font-black text-blue-600 mt-2">
+                        {materialRequests.filter(r => r.status === 'pendente').length} <span className="text-xs font-bold opacity-50">pedidos</span>
+                      </p>
+                      <p className="text-[8px] font-bold text-zinc-500 uppercase mt-1">Aguardando análise e assinatura</p>
+                    </div>
+
+                    <div className="bg-[var(--bg-secondary)] border border-[var(--border-color)] p-5 rounded-sm shadow-sm">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[9px] font-black uppercase tracking-widest text-[var(--text-secondary)]">Lotes Liberados</span>
+                        <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                      </div>
+                      <p className="text-2xl font-black text-emerald-500 mt-2">
+                        {materialRequests.filter(r => r.status === 'aprovado').length} <span className="text-xs font-bold opacity-50">lotes</span>
+                      </p>
+                      <p className="text-[8px] font-bold text-zinc-500 uppercase mt-1">Assinados e entregues às equipes</p>
+                    </div>
+
+                    <div className="bg-[var(--bg-secondary)] border border-[var(--border-color)] p-5 rounded-sm shadow-sm">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[9px] font-black uppercase tracking-widest text-[var(--text-secondary)]">Devoluções Pendentes</span>
+                        <RotateCcw className="w-4 h-4 text-blue-500 animate-pulse" />
+                      </div>
+                      <p className="text-2xl font-black text-blue-500 mt-2">
+                        {materialRequests.filter(r => r.status === 'devolucao_pendente').length} <span className="text-xs font-bold opacity-50">devoluções</span>
+                      </p>
+                      <p className="text-[8px] font-bold text-zinc-500 uppercase mt-1">Prontas para dar entrada no estoque</p>
+                    </div>
+                  </div>
+
+                  {/* PAINEL DE RESUMO DO ESTOQUE GERAL CADASTRADO PELA COORDENAÇÃO */}
+                  <div className="bg-[var(--bg-secondary)] border border-[var(--border-color)] p-6 rounded-sm space-y-4">
+                    <div className="flex justify-between items-center border-b border-[var(--border-color)] pb-4">
+                      <div>
+                        <h4 className="text-xs font-black uppercase tracking-wider text-[var(--text-primary)]">Estoque Geral de Materiais Cadastrados</h4>
+                        <p className="text-[9px] font-bold text-[var(--text-secondary)] uppercase tracking-widest mt-1 opacity-60">Visualização em tempo real de materiais cadastrados pelo Coordenador Geral</p>
+                      </div>
+                      <button 
+                        onClick={() => setActiveTab('materials')}
+                        className="text-[9px] font-black uppercase tracking-widest text-blue-600 hover:underline"
+                      >
+                        Gerenciar Estoque →
+                      </button>
+                    </div>
+
+                    {materials.length > 0 ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {materials.map(m => (
+                          <div key={m.id} className="bg-[var(--bg-tertiary)] border border-[var(--border-color)] p-4 rounded-sm flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="p-2.5 bg-blue-600/10 text-blue-600 rounded-sm">
+                                <Package className="w-5 h-5" />
+                              </div>
+                              <div className="text-left">
+                                <p className="text-xs font-black uppercase text-[var(--text-primary)]">{m.name}</p>
+                                <p className="text-[9px] font-bold text-zinc-400 uppercase mt-0.5">
+                                  {m.current.toLocaleString('pt-BR')} de {m.total.toLocaleString('pt-BR')} un disponíveis
+                                </p>
+                              </div>
+                            </div>
+                            <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-sm ${m.current > 0 ? 'bg-emerald-500/10 text-emerald-600' : 'bg-red-500/10 text-red-600'}`}>
+                              {m.current > 0 ? 'DISPONÍVEL' : 'ESGOTADO'}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-center py-6 text-[10px] font-black uppercase text-zinc-400">Nenhum material cadastrado no momento.</p>
+                    )}
+                  </div>
+
+                  {/* LISTA DE SOLICITAÇÕES DE MATERIAIS DE CAMPO */}
+                  <div className="bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-sm p-6 md:p-8 shadow-sm">
+                    <h4 className="text-xs font-black uppercase tracking-wider text-[var(--text-primary)] mb-6 border-b border-[var(--border-color)] pb-3">
+                      Lista de Solicitações enviadas pelas Equipes
+                    </h4>
+
+                    <div className="space-y-4">
+                      {materialRequests.length > 0 ? (
+                        materialRequests.sort((a, b) => b.createdAt - a.createdAt).map(req => (
+                          <div key={req.id} className="bg-[var(--bg-tertiary)] border border-[var(--border-color)] p-5 rounded-sm flex flex-col md:flex-row md:items-center justify-between gap-4 group hover:border-blue-600/30 transition-all">
+                            <div className="flex items-start gap-4">
+                              <div className={`p-3 rounded-sm border shrink-0 ${
+                                req.status === 'aprovado' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 
+                                req.status === 'devolucao_pendente' ? 'bg-blue-500/10 text-blue-500 border-blue-500/20 animate-pulse' :
+                                req.status === 'devolvido' ? 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20' :
+                                req.status === 'negado' ? 'bg-red-500/10 text-red-500 border-red-500/20' : 'bg-blue-600/10 text-blue-600 border-blue-600/20'
+                              }`}>
+                                <Package className="w-5 h-5" />
+                              </div>
+
+                              <div className="text-left space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <h5 className="font-black text-xs md:text-sm uppercase text-[var(--text-primary)]">{req.materialName} ({req.qty} un)</h5>
+                                  <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-sm ${
+                                    req.status === 'aprovado' ? 'bg-emerald-500 text-white' : 
+                                    req.status === 'devolucao_pendente' ? 'bg-blue-600 text-white' :
+                                    req.status === 'devolvido' ? 'bg-zinc-500 text-white' :
+                                    req.status === 'negado' ? 'bg-red-500 text-white' : 'bg-blue-600 text-white'
+                                  }`}>
+                                    {req.status === 'devolucao_pendente' ? 'Devolução Pendente' : req.status}
+                                  </span>
+                                </div>
+                                
+                                <p className="text-[10px] font-bold text-blue-600 uppercase">
+                                  Líder: {req.leaderName} • Equipe: {req.team || 'Base'}
+                                </p>
+
+                                {req.reason && (
+                                  <p className="text-[10px] text-zinc-400 italic">"{req.reason}"</p>
+                                )}
+
+                                <div className="flex flex-wrap items-center gap-3 pt-1 text-[9px] font-bold text-zinc-500 uppercase">
+                                  <span>Solicitado em: {new Date(req.createdAt).toLocaleString('pt-BR')}</span>
+                                  {req.returnDate && (
+                                    <span>• Previsão Devolução: {new Date(req.returnDate + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
+                                  )}
+                                </div>
+
+                                {req.signedBy && (
+                                  <p className="text-[8px] font-mono text-emerald-600 dark:text-emerald-400 pt-1">
+                                    ✓ Assinado digitalmente por {req.signedBy} (HASH: {req.signatureHash})
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
+                              {req.status === 'pendente' && (
+                                <>
+                                  <button 
+                                    onClick={() => handleDenyMaterialRequest(req.id)}
+                                    className="px-3 py-2 bg-red-500/10 text-red-600 rounded-sm font-black text-[9px] uppercase tracking-wider hover:bg-red-500 hover:text-white transition-all"
+                                  >
+                                    Negar
+                                  </button>
+                                  <button 
+                                    onClick={() => handleApproveMaterialRequest(req)}
+                                    className="px-4 py-2 bg-emerald-500 text-white rounded-sm font-black text-[9px] uppercase tracking-wider hover:bg-emerald-400 transition-all shadow-md shadow-emerald-500/20"
+                                  >
+                                    Assinar & Liberar
+                                  </button>
+                                </>
+                              )}
+
+                              {req.status === 'devolucao_pendente' && (
+                                <button 
+                                  onClick={() => handleConfirmReturnMaterialRequest(req)}
+                                  className="px-4 py-2 bg-blue-600 text-white rounded-sm font-black text-[9px] uppercase tracking-wider hover:bg-blue-500 transition-all shadow-md shadow-blue-500/20"
+                                >
+                                  Confirmar Devolução
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="py-12 text-center border-2 border-dashed border-[var(--border-color)] rounded-sm grayscale opacity-40">
+                          <Package className="w-10 h-10 text-zinc-400 mx-auto mb-2" />
+                          <p className="text-[10px] font-black uppercase text-zinc-400">Nenhuma solicitação enviada até o momento.</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </motion.div>
             )}

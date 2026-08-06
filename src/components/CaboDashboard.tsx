@@ -388,7 +388,7 @@ export default function CaboDashboard({
             });
 
             if (unsubMaterialRequests) unsubMaterialRequests();
-            unsubMaterialRequests = firestoreService.subscribeToCollectionFiltered('material_requests', resolvedCoordId, (data) => {
+            unsubMaterialRequests = firestoreService.subscribeToCollection<any>('material_requests', (data) => {
               setMaterialRequests(data);
             });
 
@@ -2016,15 +2016,11 @@ export default function CaboDashboard({
                     <label className="text-[9px] font-black text-[var(--text-secondary)] uppercase tracking-widest ml-1 opacity-70">Tipo de Material</label>
                     <select name="materialId" required className="w-full bg-[var(--bg-tertiary)] border border-[var(--border-color)] rounded-sm py-4 px-4 font-bold text-xs text-[var(--text-primary)] shadow-inner outline-none focus:border-blue-600 transition-colors cursor-pointer">
                       <option value="">Selecione o Material</option>
-                      {(() => {
-                        const filtered = materials.filter(m => !resolvedCoordinatorId || m.coordinatorId === resolvedCoordinatorId);
-                        const listToRender = filtered.length > 0 ? filtered : materials;
-                        return listToRender.map(m => (
-                          <option key={m.id} value={m.id} disabled={m.current <= 0}>
-                            {m.name} ({m.current} disponíveis)
-                          </option>
-                        ));
-                      })()}
+                      {materials.map(m => (
+                        <option key={m.id} value={m.id} disabled={m.current <= 0}>
+                          {m.name} ({m.current.toLocaleString('pt-BR')} disponíveis no estoque)
+                        </option>
+                      ))}
                     </select>
                   </div>
                   <div className="space-y-2 text-left">
@@ -2048,8 +2044,8 @@ export default function CaboDashboard({
               {/* REQUEST LIST */}
               <div className="lg:col-span-2 space-y-4">
                 <h3 className="text-[10px] font-black text-[var(--text-secondary)] uppercase tracking-[0.2em] mb-4">Minhas Solicitações</h3>
-                {materialRequests.filter(r => r.leaderId === user.uid).length > 0 ? (
-                  materialRequests.filter(r => r.leaderId === user.uid).sort((a, b) => b.createdAt - a.createdAt).map(req => (
+                {materialRequests.filter(r => r.leaderId === user.uid || r.createdBy === user.uid).length > 0 ? (
+                  materialRequests.filter(r => r.leaderId === user.uid || r.createdBy === user.uid).sort((a, b) => b.createdAt - a.createdAt).map(req => (
                     <div key={req.id} className="bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-sm p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 group hover:border-blue-600/30 transition-all shadow-[var(--shadow-sm)]">
                       <div className="flex items-start gap-5">
                         <div className={`w-14 h-14 bg-[var(--bg-tertiary)] rounded-sm flex items-center justify-center border border-[var(--border-color)] shadow-inner flex-shrink-0 ${
