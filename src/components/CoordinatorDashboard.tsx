@@ -2260,7 +2260,7 @@ export default function CoordinatorDashboard({
       sub: 'Monitoramento Real', 
       color: 'text-emerald-600 dark:text-emerald-500',
       iconColor: 'bg-emerald-50 dark:bg-emerald-500/10',
-      action: () => isGeral ? setActiveTab('reports') : setActiveTab('voters')
+      action: () => setActiveTab('voters')
     },
     { 
       label: 'Agenda Pendente', 
@@ -2269,15 +2269,7 @@ export default function CoordinatorDashboard({
       color: 'text-blue-600 dark:text-blue-400',
       iconColor: 'bg-blue-50 dark:bg-blue-500/10',
       action: () => setActiveTab('agenda')
-    },
-    { 
-      label: 'Dia D (Votaram)', 
-      value: votedVotersCount, 
-      sub: `${((votedVotersCount / ((totalVotersCount || allVoters.length) || 1)) * 100).toFixed(1)}% de Metas`, 
-      color: 'text-emerald-700 dark:text-emerald-400',
-      iconColor: 'bg-emerald-100 dark:bg-emerald-500/20',
-      action: () => isGeral ? setActiveTab('reports') : setActiveTab('voters')
-    },
+    }
   ];
 
   const handleCreateOrUpdateAgenda = async (e: React.FormEvent) => {
@@ -2988,7 +2980,7 @@ export default function CoordinatorDashboard({
               </motion.section>
 
               {/* STATS GRID */}
-              <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+              <section className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
                 {stats.map((stat, i) => (
                   <motion.div 
                     key={i}
@@ -3003,7 +2995,6 @@ export default function CoordinatorDashboard({
                         {i === 0 && <Target className="w-3.5 h-3.5 text-[var(--text-secondary)] group-hover:text-white" />}
                         {i === 1 && <Users className="w-3.5 h-3.5 text-[var(--text-secondary)] group-hover:text-white" />}
                         {i === 2 && <Calendar className="w-3.5 h-3.5 text-[var(--text-secondary)] group-hover:text-white" />}
-                        {i === 3 && <DollarSign className="w-3.5 h-3.5 text-[var(--text-secondary)] group-hover:text-white" />}
                       </div>
                       <div className="flex flex-col items-end">
                         <span className="text-[6px] md:text-[7px] font-black py-0.5 px-1.5 bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-400 rounded-sm uppercase tracking-widest border border-green-200/50 dark:border-green-500/20 leading-none">ATIVO</span>
