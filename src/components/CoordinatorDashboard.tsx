@@ -688,16 +688,6 @@ export default function CoordinatorDashboard({
           if (myMunicipalities.some(m => m && m.length >= 3 && tNameNorm.includes(normalizeStr(m)))) return true;
         }
 
-        if (allVoters && allVoters.length > 0) {
-          const hasMyVoterInTeam = allVoters.some(v => {
-            const vRegId = String(v.regionalCoordId || '');
-            const vRegEmail = (v.regionalCoordEmail || '').toLowerCase().trim();
-            const isMyVoter = (uId && (vRegId === uId || v.createdBy === uId)) || (uEmail && vRegEmail === uEmail);
-            return isMyVoter && isVoterInTeam(v, t);
-          });
-          if (hasMyVoterInTeam) return true;
-        }
-
         return false;
       });
     }
@@ -717,7 +707,7 @@ export default function CoordinatorDashboard({
     }
 
     return teams;
-  }, [teams, isGeral, isRegional, isLeader, user, userRegion, profileData, regionalCoordinators, allVoters]);
+  }, [teams, isGeral, isRegional, isLeader, user, userRegion, profileData, regionalCoordinators]);
 
   // --- GENERIC VOTER FILTER FOR CURRENT LOGGED IN USER ---
   const filterVotersForUser = useCallback((rawVotersList: any[], currentDisplayTeams: any[]) => {
